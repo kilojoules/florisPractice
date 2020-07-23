@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 #from patternSearch import patternSearch as ps
 from scipy.stats import norm
 from twofunc import f
-from sklearn.gaussian_process.kernels import Matern, RBF, ConstantKernel as C, RationalQuadratic
+from sklearn.gaussian_process.kernels import Matern, RBF, ConstantKernel as C, RationalQuadratic, WhiteKernel
 from sklearn.gaussian_process import GaussianProcessRegressor
 from scipy.interpolate import Rbf
 from scipy.optimize import minimize as mini
@@ -85,7 +85,7 @@ for __ in range(120):
       theseEvals.append(pointdic[point])
 
    thesePoints = np.atleast_2d(thesePoints).T
-   kernel = RBF(np.ones(DIM) * 1e-2 , (1e-8 , 5e2 )) #+ RBF(np.ones(DIM) * 1e-6, (1e-9, 1e-2))
+   kernel = RBF(np.ones(DIM) * 1e-2 , (1e-8 , 5e2 )) + WhiteKernel()
    #kernel = RBF(np.ones(DIM) * 10 , (.3 , 5e3 )) #+ RBF(np.ones(DIM) * 1e-6, (1e-9, 1e-2))
    #kernel = RBF(np.ones(DIM) * 10 , (.3 , 15 )) *  C(1e-2, (1e-8, 1e8)) + C(0, (1e-8, 1e8)) + 
    #kernel = (RBF(np.ones(DIM) * 5 , (.3 , 300 )) + RBF(np.ones(DIM) * 5 , (1e-3 , 3))) * RationalQuadratic(10)
