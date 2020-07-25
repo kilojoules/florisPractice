@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 #matplotlib.use('tkagg')
 import numpy as np
 
-def florisEval(yaw_angle, WS, DIR):
+def florisEval(yaw_angles, WS, DIR):
 
    # Initialize the FLORIS interface fi
    fi = wfct.floris_interface.FlorisInterface("./twoexample_input.json")
@@ -14,7 +14,7 @@ def florisEval(yaw_angle, WS, DIR):
                            wind_speed=WS, wind_direction=DIR)
 
    # Calculate wake
-   fi.calculate_wake(yaw_angles=np.array([0, yaw_angle]))
+   fi.calculate_wake(yaw_angles=yaw_angles)
 
    return(-1 * fi.get_farm_power() / 1e6)
 
