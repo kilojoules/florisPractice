@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-#from patternSearch import patternSearch as ps
+from patternSearch import patternSearch as ps
 from scipy.stats import norm
 from twofuncBoth import f
 from sklearn.gaussian_process.kernels import Matern, RBF, ConstantKernel as C, RationalQuadratic, WhiteKernel
@@ -9,10 +9,12 @@ from scipy.interpolate import Rbf
 from scipy.optimize import minimize as mini
 from scipy.optimize import fmin_cobyla
 
+plt.style.use('dark_background')
+
 def callb(x): print('--- >', x)
 
 
-def expected_improvement(X, X_sample, Y_sample, gpr, xi=0.0):
+def expected_improvement(X, X_sample, Y_sample, gpr, xi=0.05):
     '''
     Computes the EI at points X based on existing samples X_sample
     and Y_sample using a Gaussian process surrogate model.
@@ -41,7 +43,7 @@ def expected_improvement(X, X_sample, Y_sample, gpr, xi=0.0):
     mu_sample_opt = np.min(mu_sample)
 
     with np.errstate(divide='warn'):
-        imp = mu - mu_sample_opt #- xi
+        imp = mu - mu_sample_opt - xi
         Z = imp / sigma
         ei =  imp * norm.cdf(Z) - sigma * norm.pdf(Z)
         #print('norm is ',  norm.cdf(Z), Z)
@@ -49,6 +51,7 @@ def expected_improvement(X, X_sample, Y_sample, gpr, xi=0.0):
         ei[sigma <= 1e-8] = 0.0
 
     #print("HEY!!!!! EI IS ", ei)
+    #return (mu - sigma * 2)[0]
     return  ei[0]
 
 
@@ -61,7 +64,7 @@ XL, XU = (-30, 30)
 FULLBAYES = True
 KNOWLEDGE = False
 bounds = (np.ones(DIM) * XL, np.ones(DIM) * XU)
-np.random.seed(8642)
+np.random.seed(82)
 initial_samps = [np.random.uniform(XL, XU, size=DIM) for _ in range(n_initial)]
 outf = open('log.log', 'w')
 outf.write('y1 y2 y3 y4 pow\n')
@@ -90,7 +93,8 @@ for __ in range(120):
    thesePoints = np.atleast_2d(thesePoints)
    #kernel = Matern(np.ones(DIM) * 1, (1e-8 , 5e6 ), nu=1.5) + C(1e-2, (1e-8, 1e8))
    #kernel = Matern(np.ones(DIM) * 1, (1e-8 , 1e1 ), nu=1.4) #+ C(1e-2, (1e-8, 10))
-   kernel = RBF(5 , (1e-8 , 1e2 )) #+ WhiteKernel(1e-2)
+   kernel = RBF(5 , (1e-2 , 1e2 )) #+ WhiteKernel(1e-2)
+   #kernel = RBF(np.ones(DIM) * 5 , (1e-2 , 1e2 )) #+ WhiteKernel(1e-2)
    #kernel = RBF(np.ones(DIM) * 10 , (.3 , 5e3 )) #+ RBF(np.ones(DIM) * 1e-6, (1e-9, 1e-2))
    #kernel = RBF(np.ones(DIM) * 10 , (.3 , 15 )) *  C(1e-2, (1e-8, 1e8)) + C(0, (1e-8, 1e8)) + 
    #kernel = (RBF(np.ones(DIM) * 5 , (.3 , 300 )) + RBF(np.ones(DIM) * 5 , (1e-3 , 3))) * RationalQuadratic(10)
@@ -155,19 +159,19 @@ for __ in range(120):
             min_next_val = res.fun
             min_next_x = res.x
 
-   if np.random.random() > .5:
-   ##if __ < 2:
-      beta = True
-      thisX = min_x
-   else:
-      beta = False
-      thisX = min_next_x
-   #thisX = min_x
+   #if np.random.random() > .5:
+   ###if __ < 2:
+   #   beta = True
+   #   thisX = min_x
+   #else:
+   #   beta = False
+   #   thisX = min_next_x
+   thisX = min_x
 
    if True:
       print("PROBE")
       print(pointdic)
-      fig, ax = plt.subplots(4, figsize=(5, 20))
+      fig, ax = plt.subplots(1, 3, figsize=(12, 4))
       x = np.linspace(XL, XU, 52)[1:-1]
       keys = pointdic.keys()
       keys = [str(key) for key in keys]
@@ -184,12 +188,15 @@ for __ in range(120):
       #ax[0].fill_between(x, gs - gstd, gs + gstd, facecolor='gray')
       #ax[0].fill_between(x, gs2 - 2 * gstd2, gs2 + 2 * gstd2, facecolor='purple', alpha=0.6)
       if not FULLBAYES: ax[0].plot(x, g([x], XI), label='Low Fidelity', c='blue')
-      ax[0].contour(X, Y, fs, 80)
-      ax[1].contour(X, Y, gstd, 10, cmap=plt.cm.coolwarm)
-      ax[1].contour(X, Y, gs, 80)
-      ax[2].contour(X, Y, ei, 80)
-      ax[3].contour(X, Y, nei, 80)
-      #ax[0].colorbar()
+      c = ax[0].contour(X, Y, fs, 13)
+      #ax[0].clabel(c, inline=1, fontsize=9, fmt='%.2e')
+      c = ax[1].contour(X, Y, gstd, 6, cmap=plt.cm.coolwarm)
+      #ax[1].clabel(c, inline=1, fontsize=9, fmt='%.2e')
+      c = ax[1].contour(X, Y, gs, 13)
+      #ax[1].clabel(c, inline=1, fontsize=9, fmt='%.2e')
+      c = ax[2].contour(X, Y, -1 * ei, 13)
+      #ax[2].clabel(c, inline=1, fontsize=9, fmt='%.2e')
+      #fig.colorbar(c)
       #ax[0].plot(x, [gpf(np.ones(DIM) * xc)[0] for xc in x], label='Prediction', c='red')
       #ax[0].plot(x, [gpf_next(np.ones(DIM) * xc)[0] for xc in x], label='Prediction', c='purple')
       #plt.plot(x, g(x) + [gpf(np.ones(DIM) * xc)[0] for xc in x])
@@ -198,6 +205,7 @@ for __ in range(120):
       #ax[0].set_xlim(XL, XU)
       xy = np.array([[float(k.split(' ')[0]) for k in keys], [float(k.split(' ')[1]) for k in keys]])
       ax[1].scatter(xy[0, :], xy[1, :], c=[pointdic[key] for key in keys], marker='*', s=15, lw=3)
+      ax[2].scatter(xy[0, :], xy[1, :], c=[pointdic[key] for key in keys], marker='*', s=15, lw=3)
       #s = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf)[0] for xc in x]
       #ax[1].set_yscale('log')
       #ax[1].plot(x, np.max([s, np.zeros(len(s))], 0) )
@@ -228,6 +236,7 @@ for __ in range(120):
          plt.savefig('gpb_mf%05d' % __)
       plt.clf()
       plt.close('all')
+      hey
 
    pointdic[' '.join((str(s) for s in thisX))] = f(thisX)
    NEVALS += 1
@@ -240,7 +249,7 @@ for __ in range(120):
    outf.close()
 
   # if min_val > -3e-7: break
-   if __ > 2 and min_val > -1e-4: break
+   if __ > 2 and min_val > -1e-7: break
 
 
 keys = np.array([key for key in pointdic.keys()])

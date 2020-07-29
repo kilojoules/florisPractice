@@ -4,10 +4,13 @@ import matplotlib.pyplot as plt
 #matplotlib.use('tkagg')
 import numpy as np
 
-def florisEval(yaw_angle, WS, DIR):
+def florisEval(yaw_angle, WS, DIR, lf=False):
 
    # Initialize the FLORIS interface fi
-   fi = wfct.floris_interface.FlorisInterface("./twoexample_input.json")
+   if lf:
+      fi = wfct.floris_interface.FlorisInterface("./twoexample_inputLF.json")
+   else:
+      fi = wfct.floris_interface.FlorisInterface("./twoexample_input.json")
 
    # Set to 2x2 farm
    fi.reinitialize_flow_field(#layout_array=XY,
@@ -18,8 +21,8 @@ def florisEval(yaw_angle, WS, DIR):
 
    return(-1 * fi.get_farm_power() / 1e6)
 
-def f(x):
-   return florisEval(x, WS=[7], DIR=0)
+def f(x, lf=False):
+   return florisEval(x, WS=[7], DIR=0, lf=lf)
 
 if __name__ == '__main__':
    plt.close('all')
