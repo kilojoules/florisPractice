@@ -24,6 +24,8 @@ def florisEval(yaw_angle, WS, DIR, lf=False):
 def f(x, lf=False):
    return florisEval(x, WS=[7], DIR=0, lf=lf)
 
+def g(x): return np.sum(np.sin(np.deg2rad(x)) ** 2) - 10
+
 if __name__ == '__main__':
    plt.close('all')
    speeds = np.linspace(5, 15, 5)

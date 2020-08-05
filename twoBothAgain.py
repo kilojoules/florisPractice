@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from patternSearch import patternSearch as ps
 from scipy.stats import norm
-from twofunc import f
+from twofuncBoth import f
 from sklearn.gaussian_process.kernels import Matern, RBF, ConstantKernel as C, RationalQuadratic, WhiteKernel
 from sklearn.gaussian_process import GaussianProcessRegressor
 from scipy.interpolate import Rbf
@@ -54,15 +54,15 @@ def expected_improvement(X, X_sample, Y_sample, gpr, xi=0.05):
 
 
 pointdic = {}
-DIM = 1
+DIM = 2
 XI = 0.1
 NEVALS = 0
-n_initial = 2
+n_initial = 3
 XL, XU = (-30, 30)
 FULLBAYES = True
 KNOWLEDGE = True
 bounds = (np.ones(DIM) * XL, np.ones(DIM) * XU)
-np.random.seed(168224)
+np.random.seed(184)
 initial_samps = [np.random.uniform(XL, XU, size=DIM) for _ in range(n_initial)]
 outf = open('log.log', 'w')
 outf.write('y1 y2 y3 y4 pow\n')
@@ -84,11 +84,12 @@ for __ in range(120):
 
    thesePoints, theseEvals = [], []
    for point in pointdic.keys():
-      thesePoints.append(float(point))
-      #thesePoints.append(np.array([float(s) for s in point.split(' ')]))
+      #thesePoints.append(float(point))
+      thesePoints.append(np.array([float(s) for s in point.split(' ')]))
       theseEvals.append(pointdic[point])
 
-   thesePoints = np.atleast_2d(thesePoints).T
+   thesePoints = thesePoints
+   #thesePoints = np.atleast_2d(thesePoints).T
    #kernel = Matern(np.ones(DIM) * 1, (1e-8 , 5e6 ), nu=1.5) + C(1e-2, (1e-8, 1e8))
    #kernel = Matern(np.ones(DIM) * 1, (1e-8 , 1e1 ), nu=1.4) #+ C(1e-2, (1e-8, 10))
    #kernel = RBF(np.ones(DIM) * 1e-2 , (1e-8 , 5e1 )) #+ WhiteKernel(1e-2)
@@ -122,23 +123,23 @@ for __ in range(120):
    for x0 in [np.random.uniform(XL, XU, size=DIM) for oo in range(20)]:
       #print(x0)
       #res = mini(gpf, x0=x0, bounds=[(0, 3) for ss in range(DIM)], method='Nelder-Mead')
-      res = mini(expected_improvement, x0=x0[0], bounds=[(XL, XU) for ss in range(DIM)], args=(X_sample, Y_sample, gpf), callback=callb) 
+      res = mini(expected_improvement, x0=x0, bounds=[(XL, XU) for ss in range(DIM)], args=(X_sample, Y_sample, gpf), callback=callb) 
       if res.fun < min_val:
          min_val = res.fun
          min_x = res.x
    #hey
 
 
-   def KG(x, expect=False):
-      points = [s[0] for s in list(thesePoints) + [np.array(x)]]
-      evals = [s[0] for s in list(theseEvals) + [gpf(x)[0]]]
+   def KG(x):
+      points = [s for s in list(thesePoints) + [np.array(x)]]
+      evals = [s for s in list(theseEvals) + [gpf(x)[0]]]
       gpnxt = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=35, random_state=98765, normalize_y=True)
       if DIM == 1:
-         #print('POINTS ', points)
-         #print('EVALS ', evals)
          gpnxt.fit(np.atleast_2d(points).T, evals)
          #gpnxt.fit(np.array(points).reshape(-1, 1), evals)
       else: 
+         #print('POINTS ', points)
+         #print('EVALS ', evals)
          gpnxt.fit(points, evals)
 
       def gpf_next(x, return_std=False):
@@ -151,10 +152,8 @@ for __ in range(120):
 
       min_next_val = 1
       for x0 in [np.random.uniform(XL, XU, size=DIM) for oo in range(10)]:
-         if not expect: 
-            res = mini(gpf_next, x0=x0, bounds=[(0, 3) for ss in range(DIM)])
-         else: 
-            res = mini(expected_improvement, x0=x0, bounds=[(XL, XU) for ss in range(DIM)], args=(np.array(points), np.array(evals), gpf_next)) 
+         #res = mini(gpf_next, x0=x0, bounds=[(0, 3) for ss in range(DIM)])
+         res = mini(expected_improvement, x0=x0, bounds=[(XL, XU) for ss in range(DIM)], args=(np.array(points), np.array(evals), gpf_next)) 
          #res = mini(gpf_next, x0=x0, bounds=[(0, 3) for ss in range(DIM)], args=(X_sample, Y_sample, gpf_next))
          #print('--> ', res.fun, res.fun[0] < min_next_val)
          if res.fun < min_next_val:
@@ -176,10 +175,8 @@ for __ in range(120):
          plt.scatter(min_next_x, gpf_next(min_next_x)[0], c='blue', marker='x')
          plt.savefig('hey/%.3f___%.5f.png' % (x, gpf(min_x)[0] - gpf_next(min_next_x)))
 
-      if expect:
-         return (expected_improvement(min_x, np.array(points), np.array(evals), gpf)[0] - expected_improvement(min_x, np.array(points), np.array(evals), gpf_next)[0])
-      else:
-         return (gpf(min_x)[0] - gpf_next(min_next_x))[0]
+      return (expected_improvement(min_x, np.array(points), np.array(evals), gpf)[0] - expected_improvement(min_x, np.array(points), np.array(evals), gpf_next)[0])
+      #return -1 * (gpf(min_x)[0] - gpf_next(min_next_x))[0]
 
    if KNOWLEDGE:
       min_KG_val = 1
@@ -192,45 +189,43 @@ for __ in range(120):
 
    if True:
       print("PROBE")
-      print(pointdic)
-      fig, ax = plt.subplots(2)
-      x = np.linspace(XL, XU, 302)[1:-1]
+      fig, ax = plt.subplots(2, 2, figsize=(12, 4))
+      x = np.linspace(XL, XU, 52)[1:-1]
       keys = pointdic.keys()
       keys = [str(key) for key in keys]
-      gs = np.array([gpf(np.ones(DIM) * xc)[0] for xc in x])[:, 0]
-      #gs = np.array([gpf(np.ones(DIM) * xc)[0] for xc in x])
-      gstd = np.array([gpf(np.ones(DIM) * xc, return_std=True)[1][0] for xc in x])
-      ax[0].fill_between(x, gs - 2 * gstd, gs + 2 * gstd, facecolor='gray')
+      X, Y = np.meshgrid(x, x)
+      fs = np.array([np.array([f([xc, yc]) for xc in x]) for yc in x])
+      gs = np.array([np.array([gpf([xc, yc])[0] for xc in x]) for yc in x])
+      gstd = np.array([np.array([gpf([xc, yc], return_std=True)[1][0] for xc in x]) for yc in x])
+      #gs = np.array([np.array([gpf([xc, yc])[0] for xc in x]) for yc in x])
+      ei = np.array([np.array([expected_improvement([xc, yc],  X_sample, Y_sample, gpf)[0] for xc in x]) for yc in x])
+      #nei = np.array([np.array([expected_improvement([xc, yc],  X_sample, Y_sample, gpf_next)[0] for xc in x]) for yc in x])
+      projectedKG = np.array([np.array([KG([xc, yc]) for xc in x]) for yc in x])
+      #kngdnt = np.array([KG(xc) for xc in x])
+      #kngdnt = np.array([KG([xc]) for xc in x])
       if not FULLBAYES: ax[0].plot(x, g([x], XI), label='Low Fidelity', c='blue')
-      ax[0].plot(x, [gpf(np.ones(DIM) * xc)[0] for xc in x], label='Prediction', c='red')
-      #plt.plot(x, g(x) + [gpf(np.ones(DIM) * xc)[0] for xc in x])
-      ax[0].plot(x, [f(xc) for xc in x], c='yellow', lw=1, label='High Fidelity')
-      ax[0].set_xlim(XL, XU)
-      ax[0].scatter([float(k.split(' ')[0]) for k in keys], [pointdic[key] for key in keys], marker='*', s=15, c='green', lw=3)
-      s = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf)[0] for xc in x]
-      #ax[1].plot(x, np.max([s, np.zeros(len(s))], 0) )
-      spo = [float(k.split(' ')[0]) for k in keys]
-      #ax[1].plot(x, s, label='EI')
-      #ax[1].plot(x, np.max([s, np.zeros(len(s))], 0), label='EI')
-      if KNOWLEDGE:
-         ax2 = ax[1].twinx()
-         kngdnt = np.array([KG([xc]) for xc in x])
-         kngdntExp = np.array([KG([xc], expect=True) for xc in x])
-         ax2.plot(x, -1 * kngdnt, label='KG (simple)', c='purple')
-         ax[1].plot(x, -1 * kngdntExp, label='KG (Expected)', c='purple', ls='--')
-      ax[1].legend(loc='upper left')
-      ax2.legend(loc='upper right')
-      s2 = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf)[0] for xc in spo]
-      #ax[1].scatter([thisX], [(pointdic[' '.join((str(s) for s in thisX))])], c='red')
-      #ax[1].scatter(spo, [KG(xc) for xc in spo], s=15, c='green', lw=3)
-      #ax[1].scatter(spo, s2, s=15, c='green', lw=3)
-      #ax[1].scatter(spo, np.max([np.zeros(len(s2)), s2], 0), s=15, c='green', lw=3)
-      if FULLBAYES:
-         ax[0].set_title(r"%i High Fidelity Evaluations" % (NEVALS))
-         plt.savefig('gpkg%05d' % __)
-      else:
-         plt.title(r"$\xi=%.2f$, %i High Fidelity Evaluations" % (XI, NEVALS))
-         plt.savefig('gp_kg%05d' % __)
+      c = ax[0][0].contour(X, Y, fs, 13)
+      #ax[0].clabel(c, inline=1, fontsize=9, fmt='%.2e')
+      c = ax[0][1].contour(X, Y, gstd, 6, cmap=plt.cm.coolwarm)
+      #ax[1].clabel(c, inline=1, fontsize=9, fmt='%.2e')
+      c = ax[0][1].contour(X, Y, gs, 13)
+      #ax[1].clabel(c, inline=1, fontsize=9, fmt='%.2e')
+      c = ax[1][0].contour(X, Y, -1 * ei, 13)
+      c = ax[1][1].contour(X, Y, -1 * projectedKG, 13)
+      #ax[2].clabel(c, inline=1, fontsize=9, fmt='%.2e')
+      xy = np.array([[float(k.split(' ')[0]) for k in keys], [float(k.split(' ')[1]) for k in keys]])
+      ax[1][0].scatter(xy[0, :], xy[1, :], c=[pointdic[key] for key in keys], marker='*', s=15, lw=3)
+      ax[1][1].scatter(xy[0, :], xy[1, :], c=[pointdic[key] for key in keys], marker='*', s=15, lw=3)
+      ax[0][1].scatter(xy[0, :], xy[1, :], c=[pointdic[key] for key in keys], marker='*', s=15, lw=3)
+      #if KNOWLEDGE:
+      #   ax2 = ax[1].twinx()
+      #   ax2.plot(x, -1 * kngdnt, label='KG', c='purple')
+      #ax[1][0].legend(loc='upper left')
+      #ax2.legend(loc='upper right')
+      #s2 = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf)[0] for xc in spo]
+      ax[0][0].set_title(r"%i High Fidelity Evaluations" % (NEVALS))
+      plt.savefig('gpkgtwo%05d' % __)
+      #plt.savefig('gpkg%05d' % __)
       plt.clf()
       plt.close('all')
 
