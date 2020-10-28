@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 #matplotlib.use('tkagg')
 import numpy as np
 
-def florisEval(yaw_angle, WS, DIR, lf=False):
+def florisEval(yaw_angles, WS, DIR, lf=False):
 
    # Initialize the FLORIS interface fi
    if lf:
@@ -17,18 +17,12 @@ def florisEval(yaw_angle, WS, DIR, lf=False):
                            wind_speed=WS, wind_direction=DIR)
 
    # Calculate wake
-   fi.calculate_wake(yaw_angles=np.array(yaw_angle))
+   fi.calculate_wake(yaw_angles=yaw_angles)
 
    return(-1 * fi.get_farm_power() / 1e6)
 
-def f(x, lf=False):
-   return florisEval(x, WS=[7], DIR=0, lf=lf)
-
-def g(x, lf=False): 
-   if lf:
-      return np.sum(np.sin(np.deg2rad(x)) ** 2) - 10
-   else:
-      return np.sum(np.sin(np.deg2rad(1.3 * np.array(x) - np.pi / 5)) ** 2) #+ 0.5 * np.sin(np.deg2rad(x)) ** 4) - 10
+def f(x):
+   return florisEval(x, WS=[7], DIR=0)
 
 if __name__ == '__main__':
    plt.close('all')

@@ -51,7 +51,7 @@ def expected_improvement(X, X_sample, Y_sample, gpr, xi=0.0):
 
 
 pointdic = {}
-DIM = 4
+DIM = 1
 XI = 0.1
 NEVALS = 0
 n_initial = 2
@@ -83,7 +83,8 @@ for __ in range(120):
       thesePoints.append(np.array([float(s) for s in point.split(' ')]))
       theseEvals.append(pointdic[point])
 
-   kernel = C(.1, (1e2, 1e10)) * RBF(np.ones(DIM) * 3 , (.3 , 300 )) #* RationalQuadratic(.1)
+   kernel = RBF(np.ones(DIM) * 3 , (1e-2 , 10)) 
+   #kernel = C(.1, (1e2, 1e10)) * RBF(np.ones(DIM) * 3 , (.3 , 300 )) #* RationalQuadratic(.1)
    gp_alpha = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=35, random_state=98765)
    gp_alpha.fit(np.array(thesePoints), theseEvals)
    #gp_alpha.fit(2 * (np.array(thesePoints) - XL) / (XU - XL) - 1, theseEvals)
@@ -114,7 +115,8 @@ for __ in range(120):
          min_val = res.fun
          min_x = res.x
 
-   if min_val > -3000: break
+   #hey
+   #if min_val > -3000: break
 
 
    def KG(x):
@@ -180,11 +182,11 @@ for __ in range(120):
               ['\n']
               ))
       
-   if False:
+   if True:
       print("PROBE")
       print(pointdic)
       fig, ax = plt.subplots(2)
-      x = np.linspace(0, 3, 100)[1:-1]
+      x = np.linspace(0, 3, 20)[1:-1]
       keys = pointdic.keys()
       keys = [str(key) for key in keys]
       gs = np.array([gpf(np.ones(DIM) * xc)[0] for xc in x])
@@ -197,15 +199,17 @@ for __ in range(120):
       ax[0].plot(x, [f([xc]) for xc in x], c='white', lw=1, label='High Fidelity')
       ax[0].set_xlim(0, 3)
       ax[0].scatter([float(k.split(' ')[0]) for k in keys], [pointdic[key] for key in keys], marker='*', s=15, c='green', lw=3)
-      s = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf)[0][0] for xc in x]
+      s = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf)[0] for xc in x]
+      #s = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf)[0][0] for xc in x]
       ax[1].plot(x, np.max([s, np.zeros(len(s))], 0) )
       spo = [float(k.split(' ')[0]) for k in keys]
       ax[1].plot(x, np.max([s, np.zeros(len(s))], 0), label='EI')
       ax2 = ax[1].twinx()
-      ax2.plot(x, [KG([xc]) for xc in x], label='KG')
+      #ax2.plot(x, [KG([xc]) for xc in x], label='KG')
       ax[1].legend(loc='upper left')
       ax2.legend(loc='upper right')
-      s2 = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf)[0][0] for xc in spo]
+      s2 = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf)[0] for xc in spo]
+      #s2 = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf)[0][0] for xc in spo]
       ax[1].scatter(spo, np.max([np.zeros(len(s2)), s2], 0), s=15, c='green', lw=3)
       if FULLBAYES:
          ax[0].set_title(r"%i High Fidelity Evaluations" % (NEVALS))

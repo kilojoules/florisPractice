@@ -189,7 +189,7 @@ for __ in range(120):
 
    if True:
       print("PROBE")
-      fig, ax = plt.subplots(2, 2, figsize=(12, 4))
+      fig, ax = plt.subplots(2, 2, figsize=(12, 12))
       x = np.linspace(XL, XU, 52)[1:-1]
       keys = pointdic.keys()
       keys = [str(key) for key in keys]

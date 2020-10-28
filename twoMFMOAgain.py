@@ -15,9 +15,12 @@ def fmt(x, pos):
     b = int(b)
     return r'${} \times 10^{{{}}}$'.format(a, b)
 
-def f(x):
-   #return [turbF(x)[0], turbF(x)[0]]
-   return [turbF(x)[0], g(x)]
+def delta(x):
+   return (np.array([turbF(x, lf=False)[0], g(x, lf=False)]) 
+          - np.array([turbF(x, lf=True)[0], g(x, lf=True)]))
+
+def f(x, lf=False):
+   return [turbF(x, lf=lf)[0], g(x, lf=lf)]
 
 def callb(x): print('--- >', x)
 
@@ -72,7 +75,7 @@ def expected_improvement(X, X_sample, Y_sample, gpr, xi=.05):
         ei =  imp * norm.cdf(Z) - sigma * norm.pdf(Z)
         ei[sigma <= 1e-8] = 0.0
 
-    print('MU IS ', mu, sigma)
+    #print('MU IS ', mu, sigma)
     #print("HEY!!!!! EI IS ", ei)
     #print(mu - 2 * sigma)
     return np.min([ei, np.zeros(ei.shape)], 0)
@@ -93,6 +96,57 @@ initial_samps = [np.random.uniform(XL, XU, size=DIM) for _ in range(n_initial)]
 outf = open('log.log', 'w')
 outf.write('y1 y2 y3 y4 pow\n')
 
+def KG(z, evls, pnts, gp):
+      min_val = 1e100
+      for x0 in [np.random.uniform(XL, XU, size=DIM) for oo in range(20)]:
+         #print(x0)
+         #res = mini(gpf, x0=x0, bounds=[(0, 3) for ss in range(DIM)], method='Nelder-Mead')
+         res = mini(expected_improvement, x0=x0[0], bounds=[(XL, XU) for ss in range(DIM)], args=(X_sample, Y_sample, gp), callback=callb) 
+         if res.fun < min_val:
+            min_val = res.fun
+            min_x = res.x
+      #hey
+ 
+
+      MEAN = 0
+      NSAMPS = 100
+      #print("PPPOINTS ", pnts)
+      #print("EEEVALS  ", evls)
+      
+      for pp in range(NSAMPS):
+         points = np.atleast_2d(np.append(X_sample, z)).T  
+         m, s = gp(min_x, return_std=True)
+         evals = np.append(evls, m + np.random.normal(0, s))
+         gpnxt = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=35, random_state=98765, normalize_y=True)
+         if DIM == 1:
+            #print('POINTS ', points)
+            #print('EVALS ', evals)
+            gpnxt.fit(np.array(points).reshape(-1, 1), evals)
+         else: 
+            gpnxt.fit(points, evals)
+
+         def gpf_next(x, return_std=False):
+            alph, astd = gpnxt.predict(np.atleast_2d(x), return_std=True)
+            alph = alph[0]
+            if return_std:
+               return (alph, astd)
+            else:
+               return alph
+ 
+         min_next_val = 1
+         for x0 in [np.random.uniform(XL, XU, size=DIM) for oo in range(10)]:
+            res = mini(gpf_next, x0=x0, bounds=[(0, 3) for ss in range(DIM)])
+            #res = mini(expected_improvement, x0=x0, bounds=[(XL, XU) for ss in range(DIM)], args=(np.array(points), np.array(evals), gpf_next)) 
+            #res = mini(gpf_next, x0=x0, bounds=[(0, 3) for ss in range(DIM)], args=(X_sample, Y_sample, gpf_next))
+            #print('--> ', res.fun, res.fun[0] < min_next_val)
+            if res.fun < min_next_val:
+               min_next_val = res.fun
+               min_next_x = res.x
+
+         MEAN += min_next_val
+      MEAN /= NSAMPS
+      return min_val - MEAN
+
 
 
 def parEI(gp1, gp2, X_sample, Y_sample, EI=True, truth=False):
@@ -101,23 +155,29 @@ def parEI(gp1, gp2, X_sample, Y_sample, EI=True, truth=False):
     #ins = np.atleast_2d(x).T
     #evs = gp.predict(ins)
     if EI:
-       eis = expected_improvement(ins, X_sample, Y_sample[:, 0], gpf1)
-       eis2 = expected_improvement(ins, X_sample, Y_sample[:, 1], gpf2)
+       #eis = expected_improvement(ins, X_sample, Y_sample[:, 0], gpf1)
+       #eis2 = expected_improvement(ins, X_sample, Y_sample[:, 1], gpf2)
+       eis = np.array([KG(ns, X_sample, Y_sample[:, 0], gpf1) for ns in ins])
+       eis2 = np.array([KG(ns, X_sample, Y_sample[:, 1], gpf2) for ns in ins])
        pars = is_pareto_efficient_simple(np.array([eis, eis2]).T)
        return (ins, np.array([eis, eis2]), pars)
     else:
        if not truth:
-          a = gpf1(np.atleast_2d(ins.T))
-          b = gpf2(np.atleast_2d(ins.T))
+          a = [f(np.array([xc]), lf=True)[0] + gpf1(np.atleast_2d(np.array([xc])))[0] for xc in ins.T]
+              # gpf1(np.atleast_2d(ins.T))
+          b = [f(np.array([xc]), lf=True)[1] + gpf2(np.atleast_2d(np.array([xc])))[0] for xc in ins.T]
+          #b = gpf2(np.atleast_2d(ins.T))
        else: 
           a = [turbF(i) for i in x]
           b = [g(i) for i in x]
+       #print(a) 
        pars = is_pareto_efficient_simple(np.array([a, b]).T)
        return(ins, np.array([a, b]), pars)
     
 
 for point in initial_samps:
-    pointdic[' '.join((str(s) for s in point))] = f(point)
+    pointdic[' '.join((str(s) for s in point))] = delta(point)
+    #pointdic[' '.join((str(s) for s in point))] = f(point)
     outf.write(' '.join(
               [str(s) for s in point] + 
               [str(pointdic[' '.join((str(s) for s in point))])] + 
@@ -179,47 +239,8 @@ for __ in range(120):
    a, b, c = parEI(gpf1, gpf2, X_sample, Y_sample)
    parX = np.array([a[c][np.argmin(np.sqrt(np.sum(b[:, c] ** 2, 0)))]])
    val = np.min((np.sqrt(np.sum(b[:, c] ** 2, 0))))
+   maxval = np.max((np.sqrt(np.sum(b[:, c] ** 2, 0))))
    d = b[:, c]
-
-   if False:
-      min_val = 1e100
-      for x0 in [np.random.uniform(XL, XU, size=DIM) for oo in range(20)]:
-         #print(x0)
-         #res = mini(gpf, x0=x0, bounds=[(0, 3) for ss in range(DIM)], method='Nelder-Mead')
-         res = mini(expected_improvement, x0=x0[0], bounds=[(XL, XU) for ss in range(DIM)], args=(X_sample, Y_sample, gpf), callback=callb) 
-         if res.fun < min_val:
-            min_val = res.fun
-            min_x = res.x
-      #hey
- 
-
-      points = list(thesePoints) + [np.array(min_x)]
-      evals = theseEvals + [gpf(min_x)[0]]
-      gpnxt = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=35, random_state=98765, normalize_y=True)
-      if DIM == 1:
-         #print('POINTS ', points)
-         #print('EVALS ', evals)
-         gpnxt.fit(np.array(points).reshape(-1, 1), evals)
-      else: 
-         gpnxt.fit(points, evals)
-
-      def gpf_next(x, return_std=False):
-         alph, astd = gpnxt.predict(np.atleast_2d(x), return_std=True)
-         alph = alph[0]
-         if return_std:
-            return (alph, astd)
-         else:
-            return alph
-
-      min_next_val = 1
-      for x0 in [np.random.uniform(XL, XU, size=DIM) for oo in range(10)]:
-         #res = mini(gpf_next, x0=x0, bounds=[(0, 3) for ss in range(DIM)])
-         res = mini(expected_improvement, x0=x0, bounds=[(XL, XU) for ss in range(DIM)], args=(np.array(points), np.array(evals), gpf_next)) 
-         #res = mini(gpf_next, x0=x0, bounds=[(0, 3) for ss in range(DIM)], args=(X_sample, Y_sample, gpf_next))
-         #print('--> ', res.fun, res.fun[0] < min_next_val)
-         if res.fun < min_next_val:
-            min_next_val = res.fun
-            min_next_x = res.x
 
    if False: 
       plt.clf()
@@ -229,7 +250,7 @@ for __ in range(120):
       m2 = np.array([gpf_next(xc)[0] for xc in inx])[:, 0]
       s2 = np.array([gpf_next(xc, return_std=True)[1] for xc in inx])[:, 0]
       s1 = np.array([gpf(xc, return_std=True)[1] for xc in inx])[:, 0]
-      print(s1.shape, m1.shape)
+      #print(s1.shape, m1.shape)
       plt.fill_between(inx, m1 - 2 * s1, m1 + 2 * s1, facecolor='red', alpha=.2)
       plt.fill_between(inx, m2 - 2 * s2, m2 + 2 * s2, facecolor='blue', alpha=.2)
       plt.scatter(min_x, gpf(min_x), c='red')
@@ -237,15 +258,15 @@ for __ in range(120):
       plt.savefig('hey/%.3f___%.5f.png' % (x, gpf(min_x)[0] - gpf_next(min_next_x)))
 
    if True:
-      print("PROBE")
-      print(pointdic)
+      #print("PROBE")
+      #print(pointdic)
       fig, ax = plt.subplots(2, 2, figsize=(8, 8))
       plt.subplots_adjust(wspace=.3)
       x = np.linspace(XL, XU, 302)[1:-1]
       keys = pointdic.keys()
       keys = [str(key) for key in keys]
-      gs1 = np.array([gpf1(np.ones(DIM) * xc) for xc in x])[:, 0]
-      gs2 = np.array([gpf2(np.ones(DIM) * xc) for xc in x])[:, 0]
+      gs1 = np.array([f(np.array([xc]), lf=True)[0] + gpf1(np.ones(DIM) * xc) for xc in x])[:, 0]
+      gs2 = np.array([f(np.array([xc]), lf=True)[1] + gpf2(np.ones(DIM) * xc) for xc in x])[:, 0]
       #gs2 = np.array([gpf_next(np.ones(DIM) * xc) for xc in x])
       gstd1 = np.array([gpf1(np.ones(DIM) * xc, return_std=True)[1] for xc in x])[:, 0]
       gstd2 = np.array([gpf2(np.ones(DIM) * xc, return_std=True)[1] for xc in x])[:, 0]
@@ -262,8 +283,10 @@ for __ in range(120):
       #axx.plot(x, [turbF(xc) for xc in x], c='yellow', lw=1, label='High Fidelity')
       axx.plot(x, [g(xc) for xc in x], c='yellow', lw=1, label='High Fidelity', ls='--')
       ax[0][0].set_xlim(XL, XU)
-      ax[0][0].scatter([float(k.split(' ')[0]) for k in keys], [pointdic[key][0] for key in keys], marker='*', s=15, c='green', lw=3)
-      axx.scatter([float(k.split(' ')[0]) for k in keys], [pointdic[key][1] for key in keys], marker='*', s=15, c='lightgreen', lw=3, ls='--')
+      keypoints = np.array([float(k.split(' ')[0]) for k in keys])
+      ax[0][0].scatter(keypoints, np.array([f(np.array([point]), lf=True)[0] for point in keypoints]) + np.array([pointdic[key][0] for key in keys]), marker='*', s=15, c='green', lw=3)
+      #ax[0][0].scatter([float(k.split(' ')[0]) for k in keys], [pointdic[key][0] for key in keys], marker='*', s=15, c='green', lw=3)
+      #axx.scatter([float(k.split(' ')[0]) for k in keys], [pointdic[key][1] for key in keys], marker='*', s=15, c='lightgreen', lw=3, ls='--')
 
       s = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf1)[0] for xc in x]
       s2 = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf2)[0] for xc in x]
@@ -306,18 +329,18 @@ for __ in range(120):
       ax[1][0].set_ylabel(r'$EI(f_2)$')
       ax[1][1].set_xlabel(r'$f_1$')
       ax[1][1].set_ylabel(r'$f_2$')
-      plt.savefig('gpMO%05d' % __)
+      plt.savefig('oneDMFMO/gpMO%05d' % __)
       plt.clf()
       plt.close('all')
 
    if False:
    #if KNOWLEDGE:
    #if __ < 2:
-      pointdic[' '.join((str(s) for s in min_KG_x))] = f(min_KG_x)
+      pointdic[' '.join((str(s) for s in min_KG_x))] = delta(min_KG_x)
       thisX = min_KG_x
       hey
    else:
-      pointdic[' '.join((str(s) for s in parX))] = f(parX)
+      pointdic[' '.join((str(s) for s in parX))] = delta(parX)
       thisX = parX
    NEVALS += 1
    outf.write(' '.join(
@@ -328,7 +351,7 @@ for __ in range(120):
       
    outf.close()
 
-   if val < 3e-7: break
+   if __ > 1 and maxval < 1e-3: break
    if __ > 8: break
    #if __ > 2 and min_val > -1e-5: break
 

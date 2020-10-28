@@ -14,7 +14,7 @@ def callb(x): print('--- >', x)
 
 plt.style.use('dark_background')
 
-def expected_improvement(X, X_sample, Y_sample, gpr, xi=0.005):
+def expected_improvement(X, X_sample, Y_sample, gpr, xi=0.01):
     '''
     Computes the EI at points X based on existing samples X_sample
     and Y_sample using a Gaussian process surrogate model.
@@ -45,12 +45,13 @@ def expected_improvement(X, X_sample, Y_sample, gpr, xi=0.005):
     with np.errstate(divide='warn'):
         imp = mu - mu_sample_opt - xi
         Z = imp / sigma
-        ei =  imp * norm.cdf(Z) - sigma * norm.pdf(Z)
+        ei =  imp * norm.cdf(Z) - 2 * sigma * norm.pdf(Z)
+        #ei =  imp * norm.cdf(Z) - sigma * norm.pdf(Z)
         #ei[sigma <= 1e-8] = 0.0
 
     #print("HEY!!!!! EI IS ", ei)
-    return (mu - 2 * sigma)[0]
-    #return ei[0]
+    #return (mu - 2 * sigma)[0]
+    return ei[0]
 
 
 pointdic = {}
@@ -62,7 +63,7 @@ XL, XU = (-30, 30)
 FULLBAYES = True
 KNOWLEDGE = True
 bounds = (np.ones(DIM) * XL, np.ones(DIM) * XU)
-np.random.seed(5335)
+np.random.seed(78394)
 initial_samps = [np.random.uniform(XL, XU, size=DIM) for _ in range(n_initial)]
 outf = open('log.log', 'w')
 outf.write('y1 y2 y3 y4 pow\n')
@@ -130,8 +131,8 @@ for __ in range(120):
 
 
    def KG(x, expect=True, plot=False):
-      points = [s[0] for s in list(thesePoints) + [np.array(x)]]
-      evals = [s[0] for s in list(theseEvals) + [gpf(x)[0]]]
+      points = [s[0] for s in list(thesePoints) + [np.array(min_x)]]
+      evals = [s[0] for s in list(theseEvals) + [gpf(min_x)[0]]]
       gpnxt = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=35, random_state=98765, normalize_y=True)
       if DIM == 1:
          #print('POINTS ', points)
@@ -170,15 +171,23 @@ for __ in range(120):
          s2 = np.array([gpf_next(xc, return_std=True)[1] for xc in inx])[:, 0]
          s1 = np.array([gpf(xc, return_std=True)[1] for xc in inx])[:, 0]
          print(s1.shape, m1.shape)
-         plt.fill_between(inx, m1 - 2 * s1, m1 + 2 * s1, facecolor='red', alpha=.2)
-         plt.fill_between(inx, m2 - 2 * s2, m2 + 2 * s2, facecolor='blue', alpha=.2)
-         plt.scatter(min_x, gpf(min_x), c='red')
-         plt.scatter(min_next_x, gpf_next(min_next_x), c='blue', marker='x')
+         fig, ax = plt.subplots(2)
+         ax[0].fill_between(inx, m1 - 2 * s1, m1 + 2 * s1, facecolor='red', alpha=1)
+         ax[0].fill_between(inx, m2 - 2 * s2, m2 + 2 * s2, facecolor='blue', alpha=.7)
+         ax[0].plot(inx, m1, c='r')
+         ax[0].plot(inx, m2, c='blue')
+         ax[0].plot(inx, [f(xc) for xc in inx], c='white', ls='--')
+         ax[0].scatter(min_x, gpf(min_x), c='red')
+         ax[0].scatter(min_next_x, gpf_next(min_next_x), c='blue', marker='x')
+         ax[1].plot(inx, [-1 * np.min([0, expected_improvement(xc, np.array(points), np.array(evals), gpf)]) for xc in inx], label='EI', c='r')
+         ax[1].plot(inx, [-1 * np.min([0, expected_improvement(xc, np.array(points), np.array(evals), gpf_next)]) for xc in inx], label='lookahed(EI)', c='blue')
+         ax[1].legend()
          print((x, (expected_improvement(min_x, np.array(points), np.array(evals), gpf)[0] - expected_improvement(min_x, np.array(points), np.array(evals), gpf_next)[0])))
          plt.savefig('hey/%.3f___%.5f.png' % (x[0], (expected_improvement(min_x, np.array(points), np.array(evals), gpf)[0] - expected_improvement(min_x, np.array(points), np.array(evals), gpf_next)[0])))
 
       if expect:
-         return (expected_improvement(min_x, np.array(points), np.array(evals), gpf)[0] - expected_improvement(min_x, np.array(points), np.array(evals), gpf_next)[0])
+         return expected_improvement(x, np.array(points), np.array(evals), gpf_next)[0]
+         #return (expected_improvement(min_x, np.array(points), np.array(evals), gpf)[0] - expected_improvement(min_x, np.array(points), np.array(evals), gpf_next)[0])
          #return (expected_improvement(min_x, np.array(points), np.array(evals), gpf)[0] - expected_improvement(min_x, np.array(points), np.array(evals), gpf_next)[0])
       else:
          return (gpf(min_x)[0] - gpf_next(min_next_x))[0]
@@ -191,7 +200,6 @@ for __ in range(120):
          if res['f'] < min_KG_val:
             min_KG_val = res['f']
             min_KG_x = res['x']
-            KG(res['x'], plot=True)
 
    if True:
       print("PROBE")
@@ -211,35 +219,36 @@ for __ in range(120):
       ax[0].set_xlim(XL, XU)
       ax[0].scatter([float(k.split(' ')[0]) for k in keys], [pointdic[key] for key in keys], marker='*', s=15, c='green', lw=3)
       s = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf)[0] for xc in x]
+      #s2 = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf, xi=0.02)[0] for xc in x]
       #ax[1].plot(x, np.max([s, np.zeros(len(s))], 0) )
       spo = [float(k.split(' ')[0]) for k in keys]
-      ax[2].plot(x, s, label='EI')
-      ax[2].plot(x, np.max([s, np.zeros(len(s))], 0), label='EI')
+      #ax[2].plot(x, s, label='EI')
+      ax[2].plot(x, np.max([s, np.zeros(len(s))], 0), label=r'EI')
+      #ax[2].plot(x, np.max([s2, np.zeros(len(s2))], 0), label=r'$EI(\xi=0.02$')
       ax[2].legend()
       if KNOWLEDGE:
          #ax2 = ax[1].twinx()
          #kngdnt = np.array([KG([xc]) for xc in x])
-         kngdntExp = np.array([KG([xc], expect=True, plot=True) for xc in x])
+         kngdntExp = np.array([KG([xc], expect=True, plot=False) for xc in x])
          #ax2.plot(x, -1 * kngdnt, label='KG (simple)', c='purple')
-         ax[1].plot(x, -1 * kngdntExp, label='KG (Expected)', c='purple', ls='--')
+         ax[1].plot(x, -1 * kngdntExp, label=r'lookahead', c='purple', ls='--')
       ax[1].legend(loc='upper left')
       #ax2.legend(loc='upper right')
-      s2 = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf)[0] for xc in spo]
+      #s2 = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf)[0] for xc in spo]
       #ax[1].scatter([thisX], [(pointdic[' '.join((str(s) for s in thisX))])], c='red')
       #ax[1].scatter(spo, [KG(xc) for xc in spo], s=15, c='green', lw=3)
       #ax[1].scatter(spo, s2, s=15, c='green', lw=3)
       #ax[1].scatter(spo, np.max([np.zeros(len(s2)), s2], 0), s=15, c='green', lw=3)
-      if FULLBAYES:
-         ax[0].set_title(r"%i High Fidelity Evaluations" % (NEVALS))
+      ax[0].set_title(r"%i High Fidelity Evaluations" % (NEVALS))
+      if KNOWLEDGE:
          plt.savefig('gpkg%05d' % __)
       else:
-         plt.title(r"$\xi=%.2f$, %i High Fidelity Evaluations" % (XI, NEVALS))
-         plt.savefig('gp_kg%05d' % __)
+         plt.savefig('gp%05d' % __)
       plt.clf()
       plt.close('all')
 
-   if False:
-   #if KNOWLEDGE:
+   #if False:
+   if KNOWLEDGE:
    #if __ < 2:
       pointdic[' '.join((str(s) for s in min_KG_x))] = f(min_KG_x)
       thisX = min_KG_x

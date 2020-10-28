@@ -43,7 +43,7 @@ def is_pareto_efficient_simple(costs):
 plt.style.use('dark_background')
 
 
-def expected_improvement(X, X_sample, Y_sample, gpr, xi=.05):
+def expected_improvement(X, X_sample, Y_sample, gpr, xi=.1):
     '''
     Computes the EI at points X based on existing samples X_sample
     and Y_sample using a Gaussian process surrogate model.
@@ -60,8 +60,8 @@ def expected_improvement(X, X_sample, Y_sample, gpr, xi=.05):
     '''
     #mu, sigma = gpr.predict(X, return_std=True)
     #mu_sample = gpr.predict(X_sample)
-    print(X.shape)
-    print(gpr(X_sample)) 
+    #print(X.shape)
+    #print(gpr(X_sample)) 
     mu, sigma = gpr(X, return_std=True)
     mu_sample = gpr(X_sample)
     #mu_sample = np.array([gpr(xx)[0] for xx in X_sample.T])
@@ -79,7 +79,7 @@ def expected_improvement(X, X_sample, Y_sample, gpr, xi=.05):
         ei =  imp * norm.cdf(Z) - sigma * norm.pdf(Z)
         ei[sigma <= 1e-8] = 0.0
 
-    print('MU IS ', mu, sigma)
+    #print('MU IS ', mu, sigma)
     #print("HEY!!!!! EI IS ", ei)
     #print(mu - 2 * sigma)
     return np.min([ei, np.zeros(ei.shape)], 0)
@@ -122,7 +122,7 @@ def parEI(gp1, gp2, X_sample, Y_sample, EI=True, truth=False):
        else: 
           a = [turbF(i) for i in ins.T]
           b = [g(i) for i in ins.T]
-       print(a) 
+       #print(a) 
        pars = is_pareto_efficient_simple(np.array([a, b]).T)
        return(ins, np.array([a, b]), pars)
     
@@ -150,10 +150,10 @@ for __ in range(120):
       theseEvals.append(pointdic[point])
 
    thesePoints = np.atleast_2d(thesePoints).T
-   #kernel = Matern(np.ones(DIM) * 1, (1e-8 , 5e6 ), nu=1.5) + C(1e-2, (1e-8, 1e8))
+   kernel = Matern(28.8, (1e-2 , 5e2 ), nu=1.5) 
    #kernel = Matern(np.ones(DIM) * 1, (1e-8 , 1e1 ), nu=1.4) #+ C(1e-2, (1e-8, 10))
    #kernel = RBF(np.ones(DIM) * 1e-2 , (1e-8 , 5e1 )) #+ WhiteKernel(1e-2)
-   kernel = RBF(15.7 , (.3 , 5e2 )) #+ RBF(np.ones(DIM) * 1e-6, (1e-9, 1e-2))
+   #kernel = RBF(np.ones(2) * 15.7 , (.3 , 5e2 )) #+ RBF(np.ones(DIM) * 1e-6, (1e-9, 1e-2))
    #kernel = RBF(np.ones(DIM) * 10 , (.3 , 15 )) *  C(1e-2, (1e-8, 1e8)) + C(0, (1e-8, 1e8)) + 
    #kernel = (RBF(np.ones(DIM) * 5 , (.3 , 300 )) + RBF(np.ones(DIM) * 5 , (1e-3 , 3))) * RationalQuadratic(10)
    #kernel = C(1e-6, (1e4, 1e8)) * (RBF(np.ones(DIM) * 5 , (.3 , 300 )) + RBF(np.ones(DIM) * 5 , (1e-3 , 3))) #* RationalQuadratic(.1)
@@ -197,75 +197,25 @@ for __ in range(120):
 
 
    a, b, c = parEI(gpf1, gpf2, X_sample, Y_sample)
+   #parX = a[:, c][:, np.argmax((np.max(np.abs(b[:, c]), 0)))]
+   #parX = a[:, c][:, np.argmin((np.max(np.abs(b[:, c]), 0)))]
+
+   #parX = a[:, c][:, np.argmax(np.sqrt(np.sum(b[:, c] ** 2, 0)))]
    parX = a[:, c][:, np.argmin(np.sqrt(np.sum(b[:, c] ** 2, 0)))]
-   val = np.min((np.sqrt(np.sum(b[:, c] ** 2, 0))))
+   val = np.min(np.max((np.sqrt(b[:, c] ** 2)), 0))
+   #val = np.max((np.sqrt(np.sum(b[:, c] ** 2, 0))))
    maxval = np.max((np.sqrt(np.sum(b[:, c] ** 2, 0))))
    d = b[:, c]
-
-   if False:
-      min_val = 1e100
-      for x0 in [np.random.uniform(XL, XU, size=DIM) for oo in range(20)]:
-         #print(x0)
-         #res = mini(gpf, x0=x0, bounds=[(0, 3) for ss in range(DIM)], method='Nelder-Mead')
-         res = mini(expected_improvement, x0=x0[0], bounds=[(XL, XU) for ss in range(DIM)], args=(X_sample, Y_sample, gpf), callback=callb) 
-         if res.fun < min_val:
-            min_val = res.fun
-            min_x = res.x
-      #hey
- 
-
-      points = list(thesePoints) + [np.array(min_x)]
-      evals = theseEvals + [gpf(min_x)[0]]
-      gpnxt = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=35, random_state=98765, normalize_y=True)
-      if DIM == 1:
-         #print('POINTS ', points)
-         #print('EVALS ', evals)
-         gpnxt.fit(np.array(points).reshape(-1, 1), evals)
-      else: 
-         gpnxt.fit(points, evals)
-
-      def gpf_next(x, return_std=False):
-         alph, astd = gpnxt.predict(np.atleast_2d(x), return_std=True)
-         alph = alph[0]
-         if return_std:
-            return (alph, astd)
-         else:
-            return alph
-
-      min_next_val = 1
-      for x0 in [np.random.uniform(XL, XU, size=DIM) for oo in range(10)]:
-         #res = mini(gpf_next, x0=x0, bounds=[(0, 3) for ss in range(DIM)])
-         res = mini(expected_improvement, x0=x0, bounds=[(XL, XU) for ss in range(DIM)], args=(np.array(points), np.array(evals), gpf_next)) 
-         #res = mini(gpf_next, x0=x0, bounds=[(0, 3) for ss in range(DIM)], args=(X_sample, Y_sample, gpf_next))
-         #print('--> ', res.fun, res.fun[0] < min_next_val)
-         if res.fun < min_next_val:
-            min_next_val = res.fun
-            min_next_x = res.x
-
-   if False: 
-      plt.clf()
-      plt.close('all')
-      inx = np.linspace(XL, XU, 1000)
-      m1 = np.array([gpf(xc)[0] for xc in inx])[:, 0]
-      m2 = np.array([gpf_next(xc)[0] for xc in inx])[:, 0]
-      s2 = np.array([gpf_next(xc, return_std=True)[1] for xc in inx])[:, 0]
-      s1 = np.array([gpf(xc, return_std=True)[1] for xc in inx])[:, 0]
-      print(s1.shape, m1.shape)
-      plt.fill_between(inx, m1 - 2 * s1, m1 + 2 * s1, facecolor='red', alpha=.2)
-      plt.fill_between(inx, m2 - 2 * s2, m2 + 2 * s2, facecolor='blue', alpha=.2)
-      plt.scatter(min_x, gpf(min_x), c='red')
-      plt.scatter(min_next_x, gpf_next(min_next_x)[0], c='blue', marker='x')
-      plt.savefig('hey/%.3f___%.5f.png' % (x, gpf(min_x)[0] - gpf_next(min_next_x)))
 
    if True:
       print("PROBE")
       print(pointdic)
-      fig, ax = plt.subplots(3, 4, figsize=(8, 8))
+      fig, ax = plt.subplots(3, 4, figsize=(10, 10))
       # f1_true f1_ei    f2_true ..
       # f1_mean f1_std    ...    f2_std
       #       estimated PF    True PF
-      plt.subplots_adjust(wspace=.3)
-      x = np.linspace(XL, XU, 12)[1:-1]
+      plt.subplots_adjust(wspace=.3, hspace=0.5)
+      x = np.linspace(XL, XU, 12)#[1:-1]
       y = np.array([x, x]).T
       X, Y = np.meshgrid(x, x)
       keys = pointdic.keys()
@@ -291,18 +241,33 @@ for __ in range(120):
 
 
 
-      c = ax[0][0].contour(X, Y, fs1, 13)
-      c = ax[1][0].contour(X, Y, fs2, 13)
+      c = ax[0][0].contourf(X, Y, fs1, 13)
+      fig.colorbar(c, ax=ax[0][0])
+      c = ax[1][0].contourf(X, Y, fs2, 13)
+      fig.colorbar(c, ax=ax[1][0])
       ax[0][0].set_title('True HF $f_1$')
       ax[1][0].set_title('True HF $f_2$')
+      
 
-      c = ax[0][1].contour(X, Y, gs1, 13)
-      c = ax[1][1].contour(X, Y, gs2, 13)
+      c = ax[0][1].contourf(X, Y, gs1, 13)
+      fig.colorbar(c, ax=ax[0][1])
+      c = ax[1][1].contourf(X, Y, gs2, 13)
+      fig.colorbar(c, ax=ax[1][1])
+      ax[0][1].set_title('Approx $\mu(f_1)$')
+      ax[1][1].set_title('Approx $\mu(f_2)$')
 
-      c = ax[0][2].contour(X, Y, gstd1, 6, cmap=plt.cm.coolwarm)
-      c = ax[1][2].contour(X, Y, gstd2, 6, cmap=plt.cm.coolwarm)
-      c = ax[0][3].contour(X, Y, -1 * ei1, 13)
-      c = ax[1][3].contour(X, Y, -1 * ei2, 13)
+      c = ax[0][2].contourf(X, Y, gstd1, 13, cmap=plt.cm.coolwarm)
+      fig.colorbar(c, ax=ax[0][2])
+      c = ax[1][2].contourf(X, Y, gstd2, 13, cmap=plt.cm.coolwarm)
+      fig.colorbar(c, ax=ax[1][2])
+      ax[0][2].set_title('Approx $\sigma(f_1)$')
+      ax[1][2].set_title('Approx $\sigma(f_2)$')
+      c = ax[0][3].contourf(X, Y, -1 * ei1, 13)
+      fig.colorbar(c, ax=ax[0][3])
+      c = ax[1][3].contourf(X, Y, -1 * ei2, 13)
+      fig.colorbar(c, ax=ax[1][3])
+      ax[0][3].set_title('$EI(f_1)$')
+      ax[1][3].set_title('$EI(f_2)$')
       #ax[0].clabel(c, inline=1, fontsize=9, fmt='%.2e')
 
       #c = ax[1][1].contour(X, Y, -1 * projectedKG, 13)
@@ -317,22 +282,32 @@ for __ in range(120):
 
       a, b, c = parEI(gpf1, gpf2, X_sample, Y_sample, EI=False, truth=True)
       d = b[:, c]
-      ax[2][1].scatter(d.T[:, 0], d.T[:, 1], c='red', marker='s')
+      c = ax[2][0].scatter(d.T[:, 0], d.T[:, 1], c='red', marker='s')
 
       a, b, c = parEI(gpf1, gpf2, X_sample, Y_sample, EI=False)
       d = b[:, c]
-      ax[2][1].scatter(d.T[:, 0], d.T[:, 1], c=np.sqrt((d.T[:, 0] ** 2 +  d.T[:, 1] ** 2)))
+      c = ax[2][0].scatter(d.T[:, 0], d.T[:, 1], c=np.sqrt((d.T[:, 0] ** 2 +  d.T[:, 1] ** 2)))
+      cb = fig.colorbar(c, ax=ax[2][0])
+      cb.set_label(r'$\sum_i f_i^j$')
 
       a, b, c = parEI(gpf1, gpf2, X_sample, Y_sample, EI=True)
       d = b[:, c]
-      ax[2][2].scatter(d.T[:, 0], d.T[:, 1], c=np.sqrt((d.T[:, 0] ** 2 +  d.T[:, 1] ** 2)))
+      c = ax[2][3].scatter(d.T[:, 0], d.T[:, 1], c=np.sqrt((d.T[:, 0] ** 2 +  d.T[:, 1] ** 2)))
+      cb = fig.colorbar(c, ax=ax[2][3])
+      cb.set_label(r'$\sum_i EI(f_i)^j$')
+      ax[2][0].set_xlabel(r'$f_1$')
+      ax[2][0].set_ylabel(r'$f_2$')
+      ax[2][3].set_xlabel(r'$-EI(f_1)$')
+      ax[2][3].set_ylabel(r'$-EI(f_2)$')
 
-      plt.suptitle(r"%i High Fidelity Evaluations" % (NEVALS))
+      plt.suptitle(r"Minimize of $\sum_i EI_i^j$ %i High Fidelity Evaluations" % (NEVALS))
       #ax[0][1].set_title("Expected Improvement")
       #ax[1][0].set_xlabel(r'$EI(f_1)$')
       #ax[1][0].set_ylabel(r'$EI(f_2)$')
       #ax[1][1].set_xlabel(r'$f_1$')
       #ax[1][1].set_ylabel(r'$f_2$')
+      ax[2][1].remove()
+      ax[2][2].remove()
       plt.savefig('gpMFMO%05d' % __)
       plt.clf()
       plt.close('all')

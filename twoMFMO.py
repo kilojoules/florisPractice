@@ -15,9 +15,12 @@ def fmt(x, pos):
     b = int(b)
     return r'${} \times 10^{{{}}}$'.format(a, b)
 
-def f(x):
-   #return [turbF(x)[0], turbF(x)[0]]
-   return [turbF(x)[0], g(x)]
+def delta(x):
+   return (np.array([turbF(x, lf=False)[0], g(x, lf=False)]) 
+          - np.array([turbF(x, lf=True)[0], g(x, lf=True)]))
+
+def f(x, lf=False):
+   return [turbF(x, lf=lf)[0], g(x, lf=lf)]
 
 def callb(x): print('--- >', x)
 
@@ -107,17 +110,21 @@ def parEI(gp1, gp2, X_sample, Y_sample, EI=True, truth=False):
        return (ins, np.array([eis, eis2]), pars)
     else:
        if not truth:
-          a = gpf1(np.atleast_2d(ins.T))
-          b = gpf2(np.atleast_2d(ins.T))
+          a = [f(np.array([xc]), lf=True)[0] + gpf1(np.atleast_2d(np.array([xc])))[0] for xc in ins.T]
+              # gpf1(np.atleast_2d(ins.T))
+          b = [f(np.array([xc]), lf=True)[1] + gpf2(np.atleast_2d(np.array([xc])))[0] for xc in ins.T]
+          #b = gpf2(np.atleast_2d(ins.T))
        else: 
           a = [turbF(i) for i in x]
           b = [g(i) for i in x]
+       print(a) 
        pars = is_pareto_efficient_simple(np.array([a, b]).T)
        return(ins, np.array([a, b]), pars)
     
 
 for point in initial_samps:
-    pointdic[' '.join((str(s) for s in point))] = f(point)
+    pointdic[' '.join((str(s) for s in point))] = delta(point)
+    #pointdic[' '.join((str(s) for s in point))] = f(point)
     outf.write(' '.join(
               [str(s) for s in point] + 
               [str(pointdic[' '.join((str(s) for s in point))])] + 
@@ -177,8 +184,10 @@ for __ in range(120):
 
 
    a, b, c = parEI(gpf1, gpf2, X_sample, Y_sample)
-   parX = np.array([a[c][np.argmin(np.sqrt(np.sum(b[:, c] ** 2, 0)))]])
+   parX = np.array([a[c][np.argmax(np.sqrt(np.sum(b[:, c] ** 2, 0)))]])
+   #parX = np.array([a[c][np.argmin(np.sqrt(np.sum(b[:, c] ** 2, 0)))]])
    val = np.min((np.sqrt(np.sum(b[:, c] ** 2, 0))))
+   maxval = np.max((np.sqrt(np.sum(b[:, c] ** 2, 0))))
    d = b[:, c]
 
    if False:
@@ -244,8 +253,8 @@ for __ in range(120):
       x = np.linspace(XL, XU, 302)[1:-1]
       keys = pointdic.keys()
       keys = [str(key) for key in keys]
-      gs1 = np.array([gpf1(np.ones(DIM) * xc) for xc in x])[:, 0]
-      gs2 = np.array([gpf2(np.ones(DIM) * xc) for xc in x])[:, 0]
+      gs1 = np.array([f(np.array([xc]), lf=True)[0] + gpf1(np.ones(DIM) * xc) for xc in x])[:, 0]
+      gs2 = np.array([f(np.array([xc]), lf=True)[1] + gpf2(np.ones(DIM) * xc) for xc in x])[:, 0]
       #gs2 = np.array([gpf_next(np.ones(DIM) * xc) for xc in x])
       gstd1 = np.array([gpf1(np.ones(DIM) * xc, return_std=True)[1] for xc in x])[:, 0]
       gstd2 = np.array([gpf2(np.ones(DIM) * xc, return_std=True)[1] for xc in x])[:, 0]
@@ -262,15 +271,17 @@ for __ in range(120):
       #axx.plot(x, [turbF(xc) for xc in x], c='yellow', lw=1, label='High Fidelity')
       axx.plot(x, [g(xc) for xc in x], c='yellow', lw=1, label='High Fidelity', ls='--')
       ax[0][0].set_xlim(XL, XU)
-      ax[0][0].scatter([float(k.split(' ')[0]) for k in keys], [pointdic[key][0] for key in keys], marker='*', s=15, c='green', lw=3)
-      axx.scatter([float(k.split(' ')[0]) for k in keys], [pointdic[key][1] for key in keys], marker='*', s=15, c='lightgreen', lw=3, ls='--')
+      keypoints = np.array([float(k.split(' ')[0]) for k in keys])
+      ax[0][0].scatter(keypoints, np.array([f(np.array([point]), lf=True)[0] for point in keypoints]) + np.array([pointdic[key][0] for key in keys]), marker='*', s=15, c='green', lw=3)
+      #ax[0][0].scatter([float(k.split(' ')[0]) for k in keys], [pointdic[key][0] for key in keys], marker='*', s=15, c='green', lw=3)
+      #axx.scatter([float(k.split(' ')[0]) for k in keys], [pointdic[key][1] for key in keys], marker='*', s=15, c='lightgreen', lw=3, ls='--')
 
       s = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf1)[0] for xc in x]
       s2 = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf2)[0] for xc in x]
       #ax[1].plot(x, np.max([s, np.zeros(len(s))], 0) )
       spo = [float(k.split(' ')[0]) for k in keys]
       ax[0][1].plot(x, s, label=r'$EI(f_1)$')
-      ax[0][1].plot(x, s2, label=r'$EI(f_2)$', ls='--')
+      ax[0][1].twinx().plot(x, s2, label=r'$EI(f_2)$', ls='--')
       #ax[1].plot(x, np.max([s, np.zeros(len(s))], 0), label='EI')
       #ax[1].plot(x, np.max([s2, np.zeros(len(s))], 0), label='NEI', ls='--')
       ax[0][1].plot(x, np.max([np.sqrt(np.array(s) ** 2 + np.array(s2) ** 2), np.zeros(len(s))], 0), label=r'$\sqrt{\sum_i EI(f_i)^2}$', ls='-.')
@@ -313,11 +324,11 @@ for __ in range(120):
    if False:
    #if KNOWLEDGE:
    #if __ < 2:
-      pointdic[' '.join((str(s) for s in min_KG_x))] = f(min_KG_x)
+      pointdic[' '.join((str(s) for s in min_KG_x))] = delta(min_KG_x)
       thisX = min_KG_x
       hey
    else:
-      pointdic[' '.join((str(s) for s in parX))] = f(parX)
+      pointdic[' '.join((str(s) for s in parX))] = delta(parX)
       thisX = parX
    NEVALS += 1
    outf.write(' '.join(
@@ -328,7 +339,7 @@ for __ in range(120):
       
    outf.close()
 
-   if val < 3e-7: break
+   if __ > 1 and maxval < 1e-3: break
    if __ > 8: break
    #if __ > 2 and min_val > -1e-5: break
 

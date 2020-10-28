@@ -14,7 +14,7 @@ def callb(x): print('--- >', x)
 
 plt.style.use('dark_background')
 
-def expected_improvement(X, X_sample, Y_sample, gpr, xi=0.005):
+def expected_improvement(X, X_sample, Y_sample, gpr, xi=0.05):
     '''
     Computes the EI at points X based on existing samples X_sample
     and Y_sample using a Gaussian process surrogate model.
@@ -46,11 +46,11 @@ def expected_improvement(X, X_sample, Y_sample, gpr, xi=0.005):
         imp = mu - mu_sample_opt - xi
         Z = imp / sigma
         ei =  imp * norm.cdf(Z) - sigma * norm.pdf(Z)
-        #ei[sigma <= 1e-8] = 0.0
+        ei[sigma <= 1e-8] = 0.0
 
     #print("HEY!!!!! EI IS ", ei)
-    return (mu - 2 * sigma)[0]
-    #return ei[0]
+    #return (mu - 2 * sigma)[0]
+    return ei[0]
 
 
 pointdic = {}
@@ -62,7 +62,7 @@ XL, XU = (-30, 30)
 FULLBAYES = True
 KNOWLEDGE = True
 bounds = (np.ones(DIM) * XL, np.ones(DIM) * XU)
-np.random.seed(5335)
+np.random.seed(145335)
 initial_samps = [np.random.uniform(XL, XU, size=DIM) for _ in range(n_initial)]
 outf = open('log.log', 'w')
 outf.write('y1 y2 y3 y4 pow\n')
@@ -92,7 +92,7 @@ for __ in range(120):
    #kernel = Matern(np.ones(DIM) * 1, (1e-8 , 5e6 ), nu=1.5) + C(1e-2, (1e-8, 1e8))
    #kernel = Matern(np.ones(DIM) * 1, (1e-8 , 1e1 ), nu=1.4) #+ C(1e-2, (1e-8, 10))
    #kernel = RBF(np.ones(DIM) * 1e-2 , (1e-8 , 5e1 )) #+ WhiteKernel(1e-2)
-   kernel = RBF(15 , (14, 16 )) #+ RBF(np.ones(DIM) * 1e-6, (1e-9, 1e-2))
+   kernel = RBF(15 , (14 , 16 )) #+ RBF(np.ones(DIM) * 1e-6, (1e-9, 1e-2))
    #kernel = RBF(np.ones(DIM) * 10 , (.3 , 15 )) *  C(1e-2, (1e-8, 1e8)) + C(0, (1e-8, 1e8)) + 
    #kernel = (RBF(np.ones(DIM) * 5 , (.3 , 300 )) + RBF(np.ones(DIM) * 5 , (1e-3 , 3))) * RationalQuadratic(10)
    #kernel = C(1e-6, (1e4, 1e8)) * (RBF(np.ones(DIM) * 5 , (.3 , 300 )) + RBF(np.ones(DIM) * 5 , (1e-3 , 3))) #* RationalQuadratic(.1)
@@ -129,59 +129,43 @@ for __ in range(120):
    #hey
 
 
-   def KG(x, expect=True, plot=False):
-      points = [s[0] for s in list(thesePoints) + [np.array(x)]]
-      evals = [s[0] for s in list(theseEvals) + [gpf(x)[0]]]
-      gpnxt = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=35, random_state=98765, normalize_y=True)
-      if DIM == 1:
-         #print('POINTS ', points)
-         #print('EVALS ', evals)
+   def KG(x, expect=True):
+      NROUNDS = 100
+      samps = np.random.normal(0, gpf(x, return_std=True)[1], NROUNDS)
+      mupf = gpf(x)[0]
+      summ = 0
+      for ll in range(NROUNDS):
+         points = [s[0] for s in list(thesePoints) + [np.array(x)]]
+         evals = [s[0] for s in list(theseEvals) + [mupf + samps[ll]]]
+         gpnxt = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=35, random_state=98765, normalize_y=True)
          gpnxt.fit(np.atleast_2d(points).T, evals)
-         #gpnxt.fit(np.array(points).reshape(-1, 1), evals)
-      else: 
-         gpnxt.fit(points, evals)
+         def gpf_next(x, return_std=False):
+            alph, astd = gpnxt.predict(np.atleast_2d(x), return_std=True)
+            alph = alph[0]
+            if return_std:
+               return (alph, astd)
+            else:
+               return alph
 
-      def gpf_next(x, return_std=False):
-         alph, astd = gpnxt.predict(np.atleast_2d(x), return_std=True)
-         alph = alph[0]
-         if return_std:
-            return (alph, astd)
+         min_next_val = 1
+         for x0 in [np.random.uniform(XL, XU, size=DIM) for oo in range(10)]:
+            if not expect: 
+               res = mini(gpf_next, x0=x0, bounds=[(0, 3) for ss in range(DIM)])
+            else: 
+               res = mini(expected_improvement, x0=x0, bounds=[(XL, XU) for ss in range(DIM)], args=(np.array(points), np.array(evals), gpf_next)) 
+            #res = mini(gpf_next, x0=x0, bounds=[(0, 3) for ss in range(DIM)], args=(X_sample, Y_sample, gpf_next))
+            #print('--> ', res.fun, res.fun[0] < min_next_val)
+            if res.fun < min_next_val:
+               min_next_val = res.fun
+               min_next_x = res.x
+
+         if expect:
+            term = (expected_improvement(min_x, np.array(points), np.array(evals), gpf)[0] - expected_improvement(min_x, np.array(points), np.array(evals), gpf_next)[0])
          else:
-            return alph
-
-      min_next_val = 1
-      for x0 in [np.random.uniform(XL, XU, size=DIM) for oo in range(10)]:
-         if not expect: 
-            res = mini(gpf_next, x0=x0, bounds=[(0, 3) for ss in range(DIM)])
-         else: 
-            res = mini(expected_improvement, x0=x0, bounds=[(XL, XU) for ss in range(DIM)], args=(np.array(points), np.array(evals), gpf_next)) 
-         #res = mini(gpf_next, x0=x0, bounds=[(0, 3) for ss in range(DIM)], args=(X_sample, Y_sample, gpf_next))
-         #print('--> ', res.fun, res.fun[0] < min_next_val)
-         if res.fun < min_next_val:
-            min_next_val = res.fun
-            min_next_x = res.x
-
-      if plot: 
-         plt.clf()
-         plt.close('all')
-         inx = np.linspace(XL, XU, 1000)
-         m1 = np.array([gpf(xc)[0] for xc in inx])[:, 0]
-         m2 = np.array([gpf_next(xc) for xc in inx])
-         s2 = np.array([gpf_next(xc, return_std=True)[1] for xc in inx])[:, 0]
-         s1 = np.array([gpf(xc, return_std=True)[1] for xc in inx])[:, 0]
-         print(s1.shape, m1.shape)
-         plt.fill_between(inx, m1 - 2 * s1, m1 + 2 * s1, facecolor='red', alpha=.2)
-         plt.fill_between(inx, m2 - 2 * s2, m2 + 2 * s2, facecolor='blue', alpha=.2)
-         plt.scatter(min_x, gpf(min_x), c='red')
-         plt.scatter(min_next_x, gpf_next(min_next_x), c='blue', marker='x')
-         print((x, (expected_improvement(min_x, np.array(points), np.array(evals), gpf)[0] - expected_improvement(min_x, np.array(points), np.array(evals), gpf_next)[0])))
-         plt.savefig('hey/%.3f___%.5f.png' % (x[0], (expected_improvement(min_x, np.array(points), np.array(evals), gpf)[0] - expected_improvement(min_x, np.array(points), np.array(evals), gpf_next)[0])))
-
-      if expect:
-         return (expected_improvement(min_x, np.array(points), np.array(evals), gpf)[0] - expected_improvement(min_x, np.array(points), np.array(evals), gpf_next)[0])
-         #return (expected_improvement(min_x, np.array(points), np.array(evals), gpf)[0] - expected_improvement(min_x, np.array(points), np.array(evals), gpf_next)[0])
-      else:
-         return (gpf(min_x)[0] - gpf_next(min_next_x))[0]
+            term = (gpf(min_x)[0] - gpf_next(min_next_x))[0]
+         #print(ll, term)
+         summ += term
+      return summ / NROUNDS
 
    if KNOWLEDGE:
       min_KG_val = 1
@@ -191,13 +175,12 @@ for __ in range(120):
          if res['f'] < min_KG_val:
             min_KG_val = res['f']
             min_KG_x = res['x']
-            KG(res['x'], plot=True)
 
    if True:
       print("PROBE")
       print(pointdic)
       fig, ax = plt.subplots(3, figsize=(6,6))
-      x = np.linspace(XL, XU, 302)[1:-1]
+      x = np.linspace(XL, XU, 52)[1:-1]
       keys = pointdic.keys()
       keys = [str(key) for key in keys]
       gs = np.array([gpf(np.ones(DIM) * xc)[0] for xc in x])[:, 0]
@@ -213,13 +196,13 @@ for __ in range(120):
       s = [-1 * expected_improvement(xc, X_sample, Y_sample, gpf)[0] for xc in x]
       #ax[1].plot(x, np.max([s, np.zeros(len(s))], 0) )
       spo = [float(k.split(' ')[0]) for k in keys]
-      ax[2].plot(x, s, label='EI')
+      #ax[1].plot(x, s, label='EI')
       ax[2].plot(x, np.max([s, np.zeros(len(s))], 0), label='EI')
       ax[2].legend()
       if KNOWLEDGE:
          #ax2 = ax[1].twinx()
-         #kngdnt = np.array([KG([xc]) for xc in x])
-         kngdntExp = np.array([KG([xc], expect=True, plot=True) for xc in x])
+         kngdnt = np.array([KG([xc]) for xc in x])
+         kngdntExp = np.array([KG([xc], expect=True) for xc in x])
          #ax2.plot(x, -1 * kngdnt, label='KG (simple)', c='purple')
          ax[1].plot(x, -1 * kngdntExp, label='KG (Expected)', c='purple', ls='--')
       ax[1].legend(loc='upper left')
