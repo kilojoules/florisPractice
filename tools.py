@@ -292,11 +292,7 @@ def EHI(x, gp1, gp2, xi=0., MD=None, NSAMPS=200, PCE=False, ORDER=2):
     par = b.T[c, :]
     par -= xi
     MEAN = 0
-    #print('PAR')
-    #print(par)
-    #print(gp1(np.linspace(XL, XU, 50)))
-    #hey
-    if not PCE:
+    if not PCE: # Monte Carlo Sampling
        for ii in range(NSAMPS):
 
           # add new point to Pareto Front
@@ -314,7 +310,7 @@ def EHI(x, gp1, gp2, xi=0., MD=None, NSAMPS=200, PCE=False, ORDER=2):
              #print('----- > ', H(pears) - H(par))
    
        return(MEAN / NSAMPS) 
-    else:
+    else: # Polynomial Chaos
        distribution = cp.J(cp.Normal(0, std1), cp.Normal(0, std2))
        samples = distribution.sample(NSAMPS, rule='Halton')
        PCEevals = []

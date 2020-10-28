@@ -71,7 +71,7 @@ for __ in range(2000):
    #eid = -1 * expected_improvement(xx, x1, fHs + fLs[:fHs.size], gpr, xi=0.01)
    #ax[2, 0].plot(xx, eid, label=r'$EI(\mu_\delta)$', c='r')
 
-   if np.max([ehid]) < 1e-4: break
+   if np.max([ehid]) < 1e-5: break
    x1 = np.append(np.atleast_2d(xx[:, np.argmax(ehid)]), x1, 0)
 
 fl = open('BOcostLogMD.log', 'w')
