@@ -15,7 +15,7 @@ plt.style.use('dark_background')
 np.random.seed(17)
 OPTIMIZER = 'fmin_l_bfgs_b'
 
-# discrepency function (assumes no cost to LF model?)
+# discrepency function 
 def delta(x):
    return (np.array([turbF(x, lf=False, MD=True), g(x, lf=False)])
           - np.array([turbF(x, lf=True, MD=True), g(x, lf=True)]))
