@@ -16,8 +16,9 @@ plt.style.use('dark_background')
 np.random.seed(17)
 OPTIMIZER = 'fmin_l_bfgs_b'
 COST = 0.01 # LF/HF cost
+PLOT = True # Flag to make plots
 
-# discrepency function (assumes no cost to LF model?)
+# discrepencies function 
 def delta(x):
    return (np.array([turbF(x, lf=False), g(x, lf=False)])
           - np.array([turbF(x, lf=True), g(x, lf=True)]))
@@ -26,7 +27,11 @@ def delta(x):
 def f(x, lf=False):
    return [turbF(x, lf=lf), g(x, lf=lf)]
 
+# LF kernel
 kernel = RBF(15 , (1e-2 , 4e2 ))
+
+# discrepency kernel
+# the minimum value of the length scale reflects prior confidence in the underlying model
 kernel2 = RBF(15 , (20 , 4e2 ))
 
 # initial samples
@@ -107,54 +112,47 @@ for __ in range(2000):
    pd2, sd2 = gpdelta2.predict(np.atleast_2d(xx).T, return_std=True)
    
    # Create plots
-   fig, ax = plt.subplots(3, 2, sharex=False, figsize=(10, 5))
-   plt.subplots_adjust(wspace=0.2, hspace=0.4)
-   ax[0, 0].plot(xx, p1, c='lightblue')
-   ax[0, 0].fill_between(xx, p1 - s1, p1 + s1, facecolor='lightblue', alpha=0.7)
-   ax02 = ax[0, 0].twinx()
-   ax02.plot(xx, p2, c='lightgreen')
-   ax02.fill_between(xx, p2 - s2, p2 + s2, facecolor='lightgreen', alpha=0.7)
-
-   ax[0, 0].plot(xx, [f(np.array([xc]), lf=True)[0] for xc in xx], c='yellow', ls='-')
-   ax02.plot(xx, [f(np.array([xc]), lf=True)[1] for xc in xx], c='yellow', ls='--')
-
-   ax[0, 0].scatter(x2, fLs, c='w', marker='x')
-   ax02.scatter(x2, fLs2, c='w', marker='x')
-
-   ax12 = ax[1, 0].twinx()
-   ax12.fill_between(xx, p2 + pd2 - s2 - sd2, p2 + pd2 + s2 + sd2, facecolor='purple', alpha=0.7)
-   ax12.fill_between(xx, p2 + pd2 - s2, p2 + pd2 + s2, facecolor='lightblue', alpha=0.7)
-
-   ax[1, 0].fill_between(xx, p1 + pd - s1 - sd, p1 + pd + s1 + sd, facecolor='red', alpha=0.7)
-   ax[1, 0].fill_between(xx, p1 + pd - s1, p1 + pd + s1, facecolor='lightblue', alpha=0.7)
-   ax[1, 0].plot(xx, p1 + pd, c='red')
-   ax[1, 0].plot(xx, [f(np.array([xc]), lf=False)[0] for xc in xx], c='yellow')
-   ax[1, 0].scatter(x1, fLs[:x1.size] + fHs, c='w', marker='x')
-
-   ax12.plot(xx, p2 + pd2, c='purple')
-   ax12.plot(xx, [f(np.array([xc]), lf=False)[1] for xc in xx], c='yellow', ls='--')
-   ax12.scatter(x1, fLs2[:x1.size] + fHs2, c='w', marker='x')
-
-   ax[2, 0].set_xlabel('x')
-   ax[0, 0].set_ylabel(r'Low-Fidelity')
-   ax[1, 0].set_ylabel(r'High-Fidelity')
-   
-   
-   ax[0, 1].set_visible(False)
-   ax[1, 1].set_visible(False)
-   a, b, c = parEI(gpr, gpr2d, x1, np.array([fHs + fLs[:fHs.size], fHs2 + fLs2[:fHs.size]]), EI=False)
-   ax[2, 1].scatter(b[:, c].T[:, 0], b[:, c].T[:, 1], c='red')
-   a, b, c = parEI(gpr2, gpr2d, x1, np.array([fHs + fLs[:fHs.size], fHs2 + fLs2[:fHs.size]]), EI=False, truth=True)
-   ax[2, 1].scatter(b[:, c].T[:, 0], b[:, c].T[:, 1], c='yellow')
-   ax[0, 0].set_title(r'$l_1 = %.2f, l_2 = %.2f$' % (gp1.kernel_.get_params()['length_scale'], gp2.kernel_.get_params()['length_scale']))
-   ax[1, 0].set_title(r'$l_{\delta_1} = %.2f, l_{\delta_2} = %.2f$' % (gpdelta.kernel_.get_params()['length_scale'], gpdelta2.kernel_.get_params()['length_scale']))
-   ax[2, 0].plot(xx, ehi1 / COST, label='EHVI$(\mu_1) / %f$' % COST, c='lightblue')
-   ax[2, 0].plot(xx, ehid, label='EHVI($\mu_\delta$)', c='red')
-   ax[2, 0].legend()
-   ax[2, 1].set_xlabel('$f_1$')
-   ax[2, 1].set_ylabel('$f_2$')
-   plt.savefig('MF_%03d' % __)
-   plt.clf()
+   if PLOT:
+      fig, ax = plt.subplots(3, 2, sharex=False, figsize=(10, 5))
+      plt.subplots_adjust(wspace=0.2, hspace=0.4)
+      ax[0, 0].plot(xx, p1, c='lightblue')
+      ax[0, 0].fill_between(xx, p1 - s1, p1 + s1, facecolor='lightblue', alpha=0.7)
+      ax02 = ax[0, 0].twinx()
+      ax02.plot(xx, p2, c='lightgreen')
+      ax02.fill_between(xx, p2 - s2, p2 + s2, facecolor='lightgreen', alpha=0.7)
+      ax[0, 0].plot(xx, [f(np.array([xc]), lf=True)[0] for xc in xx], c='yellow', ls='-')
+      ax02.plot(xx, [f(np.array([xc]), lf=True)[1] for xc in xx], c='yellow', ls='--')
+      ax[0, 0].scatter(x2, fLs, c='w', marker='x')
+      ax02.scatter(x2, fLs2, c='w', marker='x')
+      ax12 = ax[1, 0].twinx()
+      ax12.fill_between(xx, p2 + pd2 - s2 - sd2, p2 + pd2 + s2 + sd2, facecolor='purple', alpha=0.7)
+      ax12.fill_between(xx, p2 + pd2 - s2, p2 + pd2 + s2, facecolor='lightblue', alpha=0.7)
+      ax[1, 0].fill_between(xx, p1 + pd - s1 - sd, p1 + pd + s1 + sd, facecolor='red', alpha=0.7)
+      ax[1, 0].fill_between(xx, p1 + pd - s1, p1 + pd + s1, facecolor='lightblue', alpha=0.7)
+      ax[1, 0].plot(xx, p1 + pd, c='red')
+      ax[1, 0].plot(xx, [f(np.array([xc]), lf=False)[0] for xc in xx], c='yellow')
+      ax[1, 0].scatter(x1, fLs[:x1.size] + fHs, c='w', marker='x')
+      ax12.plot(xx, p2 + pd2, c='purple')
+      ax12.plot(xx, [f(np.array([xc]), lf=False)[1] for xc in xx], c='yellow', ls='--')
+      ax12.scatter(x1, fLs2[:x1.size] + fHs2, c='w', marker='x')
+      ax[2, 0].set_xlabel('x')
+      ax[0, 0].set_ylabel(r'Low-Fidelity')
+      ax[1, 0].set_ylabel(r'High-Fidelity')
+      ax[0, 1].set_visible(False)
+      ax[1, 1].set_visible(False)
+      a, b, c = parEI(gpr, gpr2d, x1, np.array([fHs + fLs[:fHs.size], fHs2 + fLs2[:fHs.size]]), EI=False)
+      ax[2, 1].scatter(b[:, c].T[:, 0], b[:, c].T[:, 1], c='red')
+      a, b, c = parEI(gpr2, gpr2d, x1, np.array([fHs + fLs[:fHs.size], fHs2 + fLs2[:fHs.size]]), EI=False, truth=True)
+      ax[2, 1].scatter(b[:, c].T[:, 0], b[:, c].T[:, 1], c='yellow')
+      ax[0, 0].set_title(r'$l_1 = %.2f, l_2 = %.2f$' % (gp1.kernel_.get_params()['length_scale'], gp2.kernel_.get_params()['length_scale']))
+      ax[1, 0].set_title(r'$l_{\delta_1} = %.2f, l_{\delta_2} = %.2f$' % (gpdelta.kernel_.get_params()['length_scale'], gpdelta2.kernel_.get_params()['length_scale']))
+      ax[2, 0].plot(xx, ehi1 / COST, label='EHVI$(\mu_1) / %f$' % COST, c='lightblue')
+      ax[2, 0].plot(xx, ehid, label='EHVI($\mu_\delta$)', c='red')
+      ax[2, 0].legend()
+      ax[2, 1].set_xlabel('Negative Power')
+      ax[2, 1].set_ylabel('Loading')
+      plt.savefig('MF_%03d' % __)
+      plt.clf()
  
    # Check stopping condition
    if np.max(ehid) < 1e-4: break
