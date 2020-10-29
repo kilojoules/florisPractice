@@ -16,6 +16,7 @@ plt.style.use('dark_background')
 np.random.seed(17)
 OPTIMIZER = 'fmin_l_bfgs_b'
 kernel = RBF(15 , (10 , 5e2 ))
+PLOT = True # flag to make plots
 
 # objective functions
 def f(x, lf=False):
@@ -62,37 +63,32 @@ for __ in range(20000):
    ehid = np.array([EHI(xc, gpr, gpr2d) for xc in xx])
 
    # Create plots
-   fig, ax = plt.subplots(2, 2, sharex=False, figsize=(10, 5))
-   plt.subplots_adjust(wspace=0.2)
-
-   ax12 = ax[0, 0].twinx()
-   ax12.fill_between(xx, pd2 - sd2, pd2 + sd2, facecolor='purple', alpha=0.7)
-
-   ax[0, 0].fill_between(xx, pd - sd, pd + sd, facecolor='red', alpha=0.7)
-   ax[0, 0].plot(xx, pd, c='red')
-   ax[0, 0].plot(xx, [f(np.array([xc]), lf=False)[0] for xc in xx], c='yellow')
-   ax[0, 0].scatter(x1, fHs, c='w', marker='x')
-
-   ax12.plot(xx, pd2, c='purple')
-   ax12.plot(xx, [f(np.array([xc]), lf=False)[1] for xc in xx], c='yellow', ls='--')
-   ax12.scatter(x1, fHs2, c='w', marker='x')
-
-   ax[1, 0].set_xlabel('x')
-   ax[0, 0].set_ylabel(r'High-Fidelity')
-   
-
-   ax[0, 0].set_title(r'$l_{1} = %.2f, l_{2} = %.2f$' % (gpdelta.kernel_.get_params()['length_scale'], gpdelta2.kernel_.get_params()['length_scale']))
-   ax[0, 1].set_visible(False)
-   a, b, c = parEI(gpr, gpr2d, x1, np.array([fHs, fHs2 ]), EI=False)
-   ax[1, 1].scatter(b[:, c].T[:, 0], b[:, c].T[:, 1], c='red')
-   a, b, c = parEI(gpr, gpr2d, x1, np.array([fHs, fHs2]), EI=False, truth=True)
-   ax[1, 1].scatter(b[:, c].T[:, 0], b[:, c].T[:, 1], c='yellow')
-   ax[1, 0].plot(xx, ehid, label='EHVI($\mu_\delta$)', c='red')
-   ax[1, 0].legend()
-   ax[1, 1].set_xlabel('$f_1$')
-   ax[1, 1].set_ylabel('$f_2$')
-   plt.savefig('BO_%03d' % __)
-   plt.clf()
+   if PLOT:
+      fig, ax = plt.subplots(2, 2, sharex=False, figsize=(10, 5))
+      plt.subplots_adjust(wspace=0.2)
+      ax12 = ax[0, 0].twinx()
+      ax12.fill_between(xx, pd2 - sd2, pd2 + sd2, facecolor='purple', alpha=0.7)
+      ax[0, 0].fill_between(xx, pd - sd, pd + sd, facecolor='red', alpha=0.7)
+      ax[0, 0].plot(xx, pd, c='red')
+      ax[0, 0].plot(xx, [f(np.array([xc]), lf=False)[0] for xc in xx], c='yellow')
+      ax[0, 0].scatter(x1, fHs, c='w', marker='x')
+      ax12.plot(xx, pd2, c='purple')
+      ax12.plot(xx, [f(np.array([xc]), lf=False)[1] for xc in xx], c='yellow', ls='--')
+      ax12.scatter(x1, fHs2, c='w', marker='x')
+      ax[1, 0].set_xlabel('x')
+      ax[0, 0].set_ylabel(r'High-Fidelity')
+      ax[0, 0].set_title(r'$l_{1} = %.2f, l_{2} = %.2f$' % (gpdelta.kernel_.get_params()['length_scale'], gpdelta2.kernel_.get_params()['length_scale']))
+      ax[0, 1].set_visible(False)
+      a, b, c = parEI(gpr, gpr2d, x1, np.array([fHs, fHs2 ]), EI=False)
+      ax[1, 1].scatter(b[:, c].T[:, 0], b[:, c].T[:, 1], c='red')
+      a, b, c = parEI(gpr, gpr2d, x1, np.array([fHs, fHs2]), EI=False, truth=True)
+      ax[1, 1].scatter(b[:, c].T[:, 0], b[:, c].T[:, 1], c='yellow')
+      ax[1, 0].plot(xx, ehid, label='EHVI($\mu_\delta$)', c='red')
+      ax[1, 0].legend()
+      ax[1, 1].set_xlabel('$f_1$')
+      ax[1, 1].set_ylabel('$f_2$')
+      plt.savefig('BO_%03d' % __)
+      plt.clf()
 
    # check stopping condition
    if np.max([ehid]) < 1e-4: break
