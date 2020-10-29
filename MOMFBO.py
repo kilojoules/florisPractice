@@ -91,7 +91,7 @@ for __ in range(20000):
    ax[1, 0].legend()
    ax[1, 1].set_xlabel('$f_1$')
    ax[1, 1].set_ylabel('$f_2$')
-   plt.savefig('MFMOBO_EHVI_test_%03d' % __)
+   plt.savefig('BO_%03d' % __)
    plt.clf()
 
    # check stopping condition
