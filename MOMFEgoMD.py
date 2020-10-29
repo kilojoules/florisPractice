@@ -57,7 +57,8 @@ for __ in range(2000):
    # create mesh
    l = np.linspace(XL, XU, 10)
    #xx = np.array([xc for xc in itertools.permutations(l, 4)]).T
-   xx = np.meshgrid(l, l, l, l)[0].reshape(DIM, l.size ** (DIM) // DIM)
+   #xx = np.meshgrid(l, l, l, l)[0].reshape(DIM, l.size ** (DIM) // DIM)
+   xx = np.random.uniform(XL, XU, (4, 400))
    #xx = np.array([np.linspace(XL, XU, 10) for _ in range(DIM)])
    
    
@@ -103,9 +104,9 @@ for __ in range(2000):
          return mu1 + mud
 
    # compute EHVI for each point in grid
-   ehi1 = np.array([EHI(xc, gpr1, gpr2, MD=DIM) for xc in xx.T])
+   ehi1 = np.array([EHI(xc, gpr1, gpr2, MD=DIM, NSAMPS=50) for xc in xx.T])
    print('///')
-   ehid = np.array([EHI(xc, gpr, gpr2d, MD=DIM) for xc in xx.T])
+   ehid = np.array([EHI(xc, gpr, gpr2d, MD=DIM, NSAMPS=50) for xc in xx.T])
    
    # remove points with zero variance -- there is no information to gain here
    #ehi1[np.any(np.isin(xx, x2), 0)] = 0
@@ -113,9 +114,9 @@ for __ in range(2000):
 
    # Check convergence
    #  (assumes LF costs 100x HF)
-   print("MAX IS ", np.max(ehid))
+   print("MAX IS ", np.max(ehid), np.max(ehi1))
    #print("MAX IS ", np.max([ehi1 / .01, ehid]))
-   if np.max([ehi1, ehid]) < 1e-5: break # (low-fidelity EHI is not weighted for stopping condition)
+   if np.max([ehi1, ehid]) < 1e-2: break # (low-fidelity EHI is not weighted for stopping condition)
 
    # add next point according to weighted EHI
    if np.max(ehi1) / 0.01 > np.max(ehid):
@@ -125,6 +126,8 @@ for __ in range(2000):
       x1 = np.append(np.atleast_2d(xx[:, np.argmax(ehid)]), x1, 0)
       x2 = np.append(np.atleast_2d(xx[:, np.argmax(ehid)]), x2, 0)
 
+l = np.linspace(XL, XU, 60)
+xx = np.meshgrid(l, l, l, l)[0].reshape(DIM, l.size ** (DIM) // DIM)
 p1, s1 = gp1.predict(np.atleast_2d(xx).T, return_std=True)
 p2, s2 = gp2.predict(np.atleast_2d(xx).T, return_std=True)
 pd, sd = gpdelta.predict(np.atleast_2d(xx).T, return_std=True)
@@ -132,8 +135,8 @@ pd2, sd2 = gpdelta2.predict(np.atleast_2d(xx).T, return_std=True)
 # record final solution
 fl = open('costLogMD.log', 'w')
 fl.write('model evals\n')
-fl.write('high %i\n' % (x1.size / DIM))
-fl.write('low %i\n' % (x2.size / DIM))
+fl.write('high %i\n' % (x1.size // DIM))
+fl.write('low %i\n' % (x2.size // DIM))
 xsol = xx[:, np.argmin(pd + p1)]
 fl.write('Best Power: %s (%s)\n' % (str(f([xsol], lf=False)), str(xsol)))
 fl.close()
