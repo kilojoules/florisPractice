@@ -1,4 +1,5 @@
 import numpy as np
+import itertools
 import matplotlib.pyplot as plt
 from patternSearch import patternSearch as ps
 from scipy.stats import norm
@@ -13,7 +14,8 @@ from tools import XL, XU
 from tools import is_pareto_efficient_simple, expected_improvement, KG, parEI, EHI
 plt.style.use('dark_background')
 np.random.seed(17)
-OPTIMIZER = 'fmin_l_bfgs_b'
+OPTIMIZER = None
+#OPTIMIZER = 'fmin_l_bfgs_b'
 
 # discrepency function 
 def delta(x):
@@ -24,8 +26,9 @@ def delta(x):
 def f(x, lf=False):
    return [turbF(x, lf=lf, MD=True), g(x, lf=lf)]
 
+DELTA_LENGTH_LOW_BOUNDS = 50
 kernel = RBF(15 , (1e-2 , 200)) # LF kernel
-kernel2 = RBF(15 , (10 , 200)) # discrepency kernel
+kernel2 = RBF(15 , (DELTA_LENGTH_LOW_BOUNDS, 200)) # discrepency kernel
 DIM = 4
 
 x1 = np.random.uniform(XL, XU, (2, DIM)) # HF samples
@@ -52,6 +55,8 @@ for __ in range(2000):
    gpdelta2.fit(np.atleast_2d(x1), fHs2)
    
    # I can probably delete this chunk of code soon, not very important
+   l = np.linspace(XL, XU, 5)
+   #xx = np.array([xc for xc in itertools.permutations(l, 4)]).T
    xx = np.array([np.linspace(XL, XU, 10) for _ in range(DIM)])
    p1, s1 = gp1.predict(np.atleast_2d(xx).T, return_std=True)
    p2, s2 = gp2.predict(np.atleast_2d(xx).T, return_std=True)
@@ -103,14 +108,20 @@ for __ in range(2000):
    # compute EHVI for each point in 10 x 10 x 10 x 10 grid
    ehi1 = np.array([EHI(xc, gpr1, gpr2, MD=DIM) for xc in xx.T])
    ehid = np.array([EHI(xc, gpr, gpr2d, MD=DIM) for xc in xx.T])
+   
+   # remove points with zero variance -- there is no information to gain here
+   #ehi1[np.any(np.isin(xx, x2), 0)] = 0
+   #ehid[np.any(np.isin(xx, x2), 0)] = 0
 
    # Check convergence
    #  (assumes LF costs 100x HF)
-   print("MAX IS ", np.max([ehi1 / .01, ehid]))
+   print("MAX IS ", np.max(ehid))
+   #print("MAX IS ", np.max([ehi1 / .01, ehid]))
    if np.max([ehi1, ehid]) < 1e-5: break # (low-fidelity EHI is not weighted for stopping condition)
 
    # add next point according to weighted EHI
    if np.max(ehi1) / 0.01 > np.max(ehid):
+      #if s[np.argmax(ehi1)] ==0: hey
       x2 = np.append(x2, np.atleast_2d(xx[:, np.argmax(ehi1)]), 0)
    else:
       x1 = np.append(np.atleast_2d(xx[:, np.argmax(ehid)]), x1, 0)
@@ -119,8 +130,8 @@ for __ in range(2000):
 # record final solution
 fl = open('costLogMD.log', 'w')
 fl.write('model evals\n')
-fl.write('high %i\n' % x1.size)
-fl.write('low %i\n' % x2.size)
+fl.write('high %i\n' % (x1.size / DIM))
+fl.write('low %i\n' % (x2.size / DIM))
 xsol = xx[:, np.argmin(pd + p1)]
 fl.write('Best Power: %s (%s)\n' % (str(f([xsol], lf=False)), str(xsol)))
 fl.close()
