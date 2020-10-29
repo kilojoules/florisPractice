@@ -14,9 +14,14 @@ from tools import XL, XU
 
 plt.style.use('dark_background')
 np.random.seed(17)
-OPTIMIZER = 'fmin_l_bfgs_b'
-kernel = RBF(15 , (10 , 5e2 ))
 PLOT = True # flag to make plots
+OPTIMIZER = 'fmin_l_bfgs_b'
+
+# GP kernel
+# - The lower bound represents prior belief.
+# - From previous experiments, it looks like the optimal
+#   length scale is a little less than 15.
+kernel = RBF(15 , (10 , 5e2 ))
 
 # objective functions
 def f(x, lf=False):
