@@ -139,32 +139,24 @@ for __ in range(2000):
    ax02 = ax[0, 0].twinx()
    ax02.plot(xx, p2, c='lightgreen')
    ax02.fill_between(xx, p2 - s2, p2 + s2, facecolor='lightgreen', alpha=0.7)
-
    ax[0, 0].plot(xx, [f(np.array([xc]), lf=True)[0] for xc in xx], c='yellow', ls='-')
    ax02.plot(xx, [f(np.array([xc]), lf=True)[1] for xc in xx], c='yellow', ls='--')
-
    ax[0, 0].scatter(x2, fLs, c='w', marker='x')
    ax02.scatter(x2, fLs2, c='w', marker='x')
-
    ax12 = ax[1, 0].twinx()
    ax12.fill_between(xx, pd2 - s2 - sd2, pd2 + s2 + sd2, facecolor='purple', alpha=0.7)
    ax12.fill_between(xx, pd2 - s2, pd2 + s2, facecolor='lightblue', alpha=0.7)
-
    ax[1, 0].fill_between(xx, pd - s1 - sd, pd + s1 + sd, facecolor='red', alpha=0.7)
    ax[1, 0].fill_between(xx, pd - s1, pd + s1, facecolor='lightblue', alpha=0.7)
    ax[1, 0].plot(xx, pd, c='red')
    ax[1, 0].plot(xx, [f(np.array([xc]), lf=False)[0] for xc in xx], c='yellow')
    ax[1, 0].scatter(x1, fHs, c='w', marker='x')
-
    ax12.plot(xx, pd2, c='purple')
    ax12.plot(xx, [f(np.array([xc]), lf=False)[1] for xc in xx], c='yellow', ls='--')
    ax12.scatter(x1, fHs2, c='w', marker='x')
-
    ax[2, 0].set_xlabel('x')
    ax[0, 0].set_ylabel(r'Low-Fidelity')
    ax[1, 0].set_ylabel(r'High-Fidelity')
-   
-   
    ax[0, 1].set_visible(False)
    ax[1, 1].set_visible(False)
    a, b, c = parEI(gpr, gpr2d, x1, np.array([fHs, fHs2]), EI=False)
@@ -189,13 +181,11 @@ for __ in range(2000):
       x1 = np.append(xx[np.argmax(ehid)], x1)
       x2 = np.append(xx[np.argmax(ehid)], x2)
 
+# record results
 fl = open('emukitcostLog.log', 'w')
-
 fl.write('model evals\n')
 fl.write('high %i\n' % x1.size)
 fl.write('low %i\n' % x2.size)
 fl.write('Best Power: %s (%s)\n' % (str(np.min(pd + p1)), str(xx[np.argmin(pd + p1)])))
 fl.write('Best Load: %s (%s)\n' % (str(np.min(pd2 + p2)), str(xx[np.argmin(pd2 + p2)])))
 fl.close()
-
-

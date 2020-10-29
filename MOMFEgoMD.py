@@ -58,8 +58,8 @@ for __ in range(2000):
    #l = np.linspace(XL, XU, 10)
    #xx = np.array([xc for xc in itertools.permutations(l, 4)]).T
    #xx = np.meshgrid(l, l, l, l)[0].reshape(DIM, l.size ** (DIM) // DIM)
-   np.random.seed(12)
-   xx = np.random.uniform(XL, XU, (4, 500))
+   #np.random.seed(12)
+   xx = np.random.uniform(XL, XU, (4, 50))
    #xx = np.array([np.linspace(XL, XU, 10) for _ in range(DIM)])
    
    
@@ -105,8 +105,8 @@ for __ in range(2000):
          return mu1 + mud
 
    # compute EHVI for each point in grid
-   ehi1 = np.array([EHI(xc, gpr1, gpr2, MD=DIM, NSAMPS=200) for xc in xx.T])
-   ehid = np.array([EHI(xc, gpr, gpr2d, MD=DIM, NSAMPS=200) for xc in xx.T])
+   ehi1 = np.array([EHI(xc, gpr1, gpr2, MD=DIM, NSAMPS=50) for xc in xx.T])
+   ehid = np.array([EHI(xc, gpr, gpr2d, MD=DIM, NSAMPS=50) for xc in xx.T])
    
    # Check convergence
    #  (assumes LF costs 100x HF)

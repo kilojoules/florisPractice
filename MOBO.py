@@ -102,4 +102,3 @@ fl.write('model evals\n')
 fl.write('high %i\n' % x1.size)
 fl.write('Best Power: %s (%s)\n' % (str(np.min(pd)), str(xx[np.argmin(pd)])))
 fl.close()
-

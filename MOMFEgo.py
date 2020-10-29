@@ -172,4 +172,3 @@ fl.write('low %i\n' % x2.size)
 fl.write('Best Power: %s (%s)\n' % (str(np.min(pd + p1)), str(xx[np.argmin(pd + p1)])))
 fl.write('Best Load: %s (%s)\n' % (str(np.min(pd2 + p2)), str(xx[np.argmin(pd2 + p2)])))
 fl.close()
-
