@@ -54,14 +54,11 @@ for __ in range(2000):
    gp2.fit(np.atleast_2d(x2), fLs2)
    gpdelta2.fit(np.atleast_2d(x1), fHs2)
    
-   # I can probably delete this chunk of code soon, not very important
-   l = np.linspace(XL, XU, 5)
+   # create mesh
+   l = np.linspace(XL, XU, 10)
    #xx = np.array([xc for xc in itertools.permutations(l, 4)]).T
-   xx = np.array([np.linspace(XL, XU, 10) for _ in range(DIM)])
-   p1, s1 = gp1.predict(np.atleast_2d(xx).T, return_std=True)
-   p2, s2 = gp2.predict(np.atleast_2d(xx).T, return_std=True)
-   pd, sd = gpdelta.predict(np.atleast_2d(xx).T, return_std=True)
-   pd2, sd2 = gpdelta2.predict(np.atleast_2d(xx).T, return_std=True)
+   xx = np.meshgrid(l, l, l, l)[0].reshape(DIM, l.size ** (DIM) // DIM)
+   #xx = np.array([np.linspace(XL, XU, 10) for _ in range(DIM)])
    
    
    # define helper functions for computing Expected Hypervolume Improvement
@@ -105,8 +102,9 @@ for __ in range(2000):
          mud = gpdelta2.predict(np.atleast_2d(x), return_std=False)
          return mu1 + mud
 
-   # compute EHVI for each point in 10 x 10 x 10 x 10 grid
+   # compute EHVI for each point in grid
    ehi1 = np.array([EHI(xc, gpr1, gpr2, MD=DIM) for xc in xx.T])
+   print('///')
    ehid = np.array([EHI(xc, gpr, gpr2d, MD=DIM) for xc in xx.T])
    
    # remove points with zero variance -- there is no information to gain here
@@ -127,6 +125,10 @@ for __ in range(2000):
       x1 = np.append(np.atleast_2d(xx[:, np.argmax(ehid)]), x1, 0)
       x2 = np.append(np.atleast_2d(xx[:, np.argmax(ehid)]), x2, 0)
 
+p1, s1 = gp1.predict(np.atleast_2d(xx).T, return_std=True)
+p2, s2 = gp2.predict(np.atleast_2d(xx).T, return_std=True)
+pd, sd = gpdelta.predict(np.atleast_2d(xx).T, return_std=True)
+pd2, sd2 = gpdelta2.predict(np.atleast_2d(xx).T, return_std=True)
 # record final solution
 fl = open('costLogMD.log', 'w')
 fl.write('model evals\n')
