@@ -1,4 +1,5 @@
 import numpy as np
+import chaospy as cp
 import matplotlib.pyplot as plt
 from patternSearch import patternSearch as ps
 from scipy.stats import norm
@@ -46,9 +47,7 @@ def is_pareto_efficient_simple(costs):
             is_efficient[i] = True  # And keep self
     return is_efficient
 
-
-
-
+# http://krasserm.github.io/2018/03/21/bayesian-optimization/
 def expected_improvement(X, X_sample, Y_sample, gpr, xi=0.0):
     '''
     Computes the EI at points X based on existing samples X_sample
@@ -91,32 +90,36 @@ compute expected improvement pareto front
   returns grid of potential inputs, the associated outputs, and indices associated with pareto front
 '''
 def parEI(gp1, gp2, X_sample, Y_sample, EI=True, truth=False, MD=False):
+
+    # create 1D grid
     x = np.linspace(XL, XU, 20)
     ins = (x)
-    if MD: ins = np.array([x for _ in range(MD)])
-    #ins = np.atleast_2d(x).T
-    #evs = gp.predict(ins)
+
+    # todo: create ND grid
+    if MD: ins = np.meshgrid(*[x for ____ in range(MD)])[0].reshape(x.size ** MD // MD, MD)
+
     if EI:
+       # compute EI front
        eis = expected_improvement(ins, X_sample, Y_sample[:, 0], gpf1)
        eis2 = expected_improvement(ins, X_sample, Y_sample[:, 1], gpf2)
        pars = is_pareto_efficient_simple(np.array([eis, eis2]).T)
        return (ins, np.array([eis, eis2]), pars)
     else:
        if not truth:
+          # compute mu_GP front
           a = [gp1(np.atleast_2d(np.array([xc])))[0] for xc in ins.T]
-          #a = [f(np.array([xc]), lf=True)[0] + gpf1(np.atleast_2d(np.array([xc])))[0] for xc in ins.T]
-              # gpf1(np.atleast_2d(ins.T))
           b = [gp2(np.atleast_2d(np.array([xc])))[0] for xc in ins.T]
-          #b = [f(np.array([xc]), lf=True)[1] + gpf2(np.atleast_2d(np.array([xc])))[0] for xc in ins.T]
-          #b = gpf2(np.atleast_2d(ins.T))
        else: 
+          # compute truth front
           a = [turbF(i) for i in x]
           b = [g(i) for i in x]
        pars = is_pareto_efficient_simple(np.array([a, b]).T)
+
        return(ins, np.array([a, b]), pars)
     
 
 
+# Knowledge gradient computation (not used)
 def MFKG(z, lfpoints, lfevals, hfpoints, hfevals, kernel, OPTIMIZE=True):
 
       # construct initial GP
@@ -159,7 +162,6 @@ def MFKG(z, lfpoints, lfevals, hfpoints, hfevals, kernel, OPTIMIZE=True):
             else:
                return alph
 
-
          # search for minimum in future GP
          min_next_val = 99999
          #for x0 in [np.random.uniform(XL, XU, size=DIM) for oo in range(10)]:
@@ -177,7 +179,6 @@ def MFKG(z, lfpoints, lfevals, hfpoints, hfevals, kernel, OPTIMIZE=True):
 
 
 
-import chaospy as cp
 
 def KG(z, evls, pnts, gp, kernel, NSAMPS=30, DEG=3, sampling=False):
 
@@ -271,7 +272,9 @@ def parEI(gpf1, gpf2, X_sample, Y_sample, EI=True, truth=False, MD=False):
        pars = is_pareto_efficient_simple(np.array([a, b]).T)
        return(ins, np.array([a, b]), pars)
     
-
+# 2-objective Hypervolume (area) Computation
+#   First order approximation of pareto front area,
+#   given nondominated reference point r_0
 def H(fs, r=(0, 0)):
     fs = sorted(fs.tolist())
     summ = 0
@@ -281,17 +284,23 @@ def H(fs, r=(0, 0)):
     summ += (fs[n][0] - r[0]) * (fs[n][1] - r[1])
     return summ
 
+# Expected hypervolume computation
+'''
+MD - number of input dimensions if not 1
+xi - see expected_improvement function definition
+NSAMPS - number of random samples employed
+PCE - Flag to use Polynomial Chaos Expansion (PCE)
+ORDER - PCE order
+'''
 def EHI(x, gp1, gp2, xi=0., MD=None, NSAMPS=200, PCE=False, ORDER=2):
 
-    #mu1, std1 = gp1.predict(np.atleast_2d(x).T, return_std=True)
-    #mu2, std2 = gp2.predict(np.atleast_2d(x).T, return_std=True)
     mu1, std1 = gp1(x, return_std=True)
     mu2, std2 = gp2(x, return_std=True)
 
     a, b, c = parEI(gp1, gp2, '', '', EI=False, MD=MD)
     par = b.T[c, :]
     par -= xi
-    MEAN = 0
+    MEAN = 0 # running sum for observed hypervolume improvement
     if not PCE: # Monte Carlo Sampling
        for ii in range(NSAMPS):
 
@@ -301,20 +310,21 @@ def EHI(x, gp1, gp2, xi=0., MD=None, NSAMPS=200, PCE=False, ORDER=2):
           idx = is_pareto_efficient_simple(pears)
           newPar = pears[idx, :]
 
-          # check if Pareto front improvemes
-          #print('peras ',pears)
+          # check if Pareto front improvemed from this point
           if idx[-1]:
-          #if par.shape[0] < newPar.shape[0]:
-          #   print('NEWPAR', newPar)
              MEAN += H(newPar) - H(par)
-             #print('----- > ', H(pears) - H(par))
    
        return(MEAN / NSAMPS) 
-    else: # Polynomial Chaos
+    else: 
+       # Polynomial Chaos
+       # (assumes 2 objective functions)
        distribution = cp.J(cp.Normal(0, std1), cp.Normal(0, std2))
+
+       # sparse grid samples
        samples = distribution.sample(NSAMPS, rule='Halton')
        PCEevals = []
        for pp in range(NSAMPS):
+
           # add new point to Pareto Front
           evl = [np.random.normal(mu1, std1), np.random.normal(mu2, std2)]
           pears = np.append(par.T, evl, 1).T
@@ -328,6 +338,5 @@ def EHI(x, gp1, gp2, xi=0., MD=None, NSAMPS=200, PCE=False, ORDER=2):
              PCEevals.append(0)
        polynomial_expansion = cp.orth_ttr(ORDER, distribution)
        foo_approx = cp.fit_regression(polynomial_expansion, samples, PCEevals)
-       #foo_approx = cp.fit_regression(polynomial_expansion, samples, PCEevals)
        MEAN = cp.E(foo_approx, distribution)
        return(MEAN)
