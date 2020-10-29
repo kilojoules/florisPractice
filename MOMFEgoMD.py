@@ -26,7 +26,7 @@ def delta(x):
 def f(x, lf=False):
    return [turbF(x, lf=lf, MD=True), g(x, lf=lf)]
 
-DELTA_LENGTH_LOW_BOUNDS = 50
+DELTA_LENGTH_LOW_BOUNDS = 30
 kernel = RBF(15 , (1e-2 , 200)) # LF kernel
 kernel2 = RBF(15 , (DELTA_LENGTH_LOW_BOUNDS, 200)) # discrepency kernel
 DIM = 4
@@ -55,10 +55,11 @@ for __ in range(2000):
    gpdelta2.fit(np.atleast_2d(x1), fHs2)
    
    # create mesh
-   l = np.linspace(XL, XU, 10)
+   #l = np.linspace(XL, XU, 10)
    #xx = np.array([xc for xc in itertools.permutations(l, 4)]).T
    #xx = np.meshgrid(l, l, l, l)[0].reshape(DIM, l.size ** (DIM) // DIM)
-   xx = np.random.uniform(XL, XU, (4, 400))
+   np.random.seed(12)
+   xx = np.random.uniform(XL, XU, (4, 500))
    #xx = np.array([np.linspace(XL, XU, 10) for _ in range(DIM)])
    
    
@@ -104,14 +105,9 @@ for __ in range(2000):
          return mu1 + mud
 
    # compute EHVI for each point in grid
-   ehi1 = np.array([EHI(xc, gpr1, gpr2, MD=DIM, NSAMPS=50) for xc in xx.T])
-   print('///')
-   ehid = np.array([EHI(xc, gpr, gpr2d, MD=DIM, NSAMPS=50) for xc in xx.T])
+   ehi1 = np.array([EHI(xc, gpr1, gpr2, MD=DIM, NSAMPS=200) for xc in xx.T])
+   ehid = np.array([EHI(xc, gpr, gpr2d, MD=DIM, NSAMPS=200) for xc in xx.T])
    
-   # remove points with zero variance -- there is no information to gain here
-   #ehi1[np.any(np.isin(xx, x2), 0)] = 0
-   #ehid[np.any(np.isin(xx, x2), 0)] = 0
-
    # Check convergence
    #  (assumes LF costs 100x HF)
    print("MAX IS ", np.max(ehid), np.max(ehi1))

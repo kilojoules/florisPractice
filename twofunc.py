@@ -37,9 +37,9 @@ def florisEval(yaw_angle, WS, DIR, lf=False, MD=False):
 
 def f(x, lf=False, MD=False):
    #if lf == True:
-   #   return np.sin(np.pi + x / 10) - 3
+   #   return np.sum(np.sin(np.pi + x / 10) - 3)
    #else:
-   #   return np.sin(np.pi + x / 10 - 1) - 3  + 0.2 * np.cos(x)
+   #   return np.sum(np.sin(np.pi + x / 10 - 1) - 3  + 0.2 * np.cos(x))
    return florisEval(x, WS=[7], DIR=0, lf=lf, MD=MD)
 
 def g(x, lf=False): 
