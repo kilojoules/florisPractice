@@ -60,8 +60,7 @@ for __ in range(2000):
    #xx = np.meshgrid(l, l, l, l)[0].reshape(DIM, l.size ** (DIM) // DIM)
    #np.random.seed(12)
    xx = np.random.uniform(XL, XU, (4, 50))
-   #xx = np.array([np.linspace(XL, XU, 10) for _ in range(DIM)])
-   
+   #xx = np.stack(np.meshgrid(*[x]*MD), axis=-1).reshape(-1, MD)
    
    # define helper functions for computing Expected Hypervolume Improvement
    def gpr(x, return_std=False):
@@ -136,5 +135,3 @@ fl.write('low %i\n' % (x2.size // DIM))
 xsol = xx[:, np.argmin(pd + p1)]
 fl.write('Best Power: %s (%s)\n' % (str(f([xsol], lf=False)), str(xsol)))
 fl.close()
-
-

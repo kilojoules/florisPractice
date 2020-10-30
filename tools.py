@@ -91,12 +91,13 @@ compute expected improvement pareto front
 '''
 def parEI(gp1, gp2, X_sample, Y_sample, EI=True, truth=False, MD=False):
 
-    # create 1D grid
-    x = np.linspace(XL, XU, 20)
-    ins = (x)
-
-    # todo: create ND grid
-    if MD: ins = np.meshgrid(*[x for ____ in range(MD)])[0].reshape(x.size ** MD // MD, MD)
+    x = np.linspace(XL, XU, 5)
+    if MD: 
+       # create ND grid
+       ins = np.stack(np.meshgrid(*[x]*MD), axis=-1).reshape(MD, -1)
+    else:
+       # create 1D grid
+       ins = x
 
     if EI:
        # compute EI front
@@ -240,38 +241,6 @@ def KG(z, evls, pnts, gp, kernel, NSAMPS=30, DEG=3, sampling=False):
 
 
 
-def parEI(gpf1, gpf2, X_sample, Y_sample, EI=True, truth=False, MD=False):
-    x = np.linspace(XL, XU, 100)
-    ins = (x)
-    if MD: ins = np.array([x for _ in range(MD)])
-    #ins = np.atleast_2d(x).T
-    #evs = gp.predict(ins)
-    if EI:
-       eis = expected_improvement(ins, X_sample, Y_sample[:, 0], gpf1)
-       eis2 = expected_improvement(ins, X_sample, Y_sample[:, 1], gpf2)
-       #eis = np.array([KG(ns, X_sample, Y_sample[:, 0], gpf1) for ns in ins])
-       #eis2 = np.array([KG(ns, X_sample, Y_sample[:, 1], gpf2) for ns in ins])
-       pars = is_pareto_efficient_simple(np.array([eis, eis2]).T)
-       return (ins, np.array([eis, eis2]), pars)
-    else:
-       if not truth:
-          if MD:
-             a = [gpf1(np.atleast_2d(xc))[0] for xc in ins.T]
-             b = [gpf2(np.atleast_2d(xc))[0] for xc in ins.T]
-          else:
-             a = [gpf1(np.atleast_2d(np.array([xc])))[0] for xc in ins.T]
-             b = [gpf2(np.atleast_2d(np.array([xc])))[0] for xc in ins.T]
-          #a = [f(np.array([xc]), lf=True)[0] + gpf1(np.atleast_2d(np.array([xc])))[0] for xc in ins.T]
-              # gpf1(np.atleast_2d(ins.T))
-          #b = [f(np.array([xc]), lf=True)[1] + gpf2(np.atleast_2d(np.array([xc])))[0] for xc in ins.T]
-          #b = gpf2(np.atleast_2d(ins.T))
-       else: 
-          a = [turbF(i) for i in x]
-          b = [g(i) for i in x]
-       #print(a) 
-       pars = is_pareto_efficient_simple(np.array([a, b]).T)
-       return(ins, np.array([a, b]), pars)
-    
 # 2-objective Hypervolume (area) Computation
 #   First order approximation of pareto front area,
 #   given nondominated reference point r_0
