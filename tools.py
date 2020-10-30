@@ -91,13 +91,13 @@ compute expected improvement pareto front
 '''
 def parEI(gp1, gp2, X_sample, Y_sample, EI=True, truth=False, MD=False):
 
-    x = np.linspace(XL, XU, 5)
     if MD: 
        # create ND grid
+       x = np.linspace(XL, XU, 5)
        ins = np.stack(np.meshgrid(*[x]*MD), axis=-1).reshape(MD, -1)
     else:
        # create 1D grid
-       ins = x
+       ins = np.linspace(XL, XU, 100)
 
     if EI:
        # compute EI front
@@ -112,8 +112,8 @@ def parEI(gp1, gp2, X_sample, Y_sample, EI=True, truth=False, MD=False):
           b = [gp2(np.atleast_2d(np.array([xc])))[0] for xc in ins.T]
        else: 
           # compute truth front
-          a = [turbF(i) for i in x]
-          b = [g(i) for i in x]
+          a = [turbF(i) for i in ins]
+          b = [g(i) for i in ins]
        pars = is_pareto_efficient_simple(np.array([a, b]).T)
 
        return(ins, np.array([a, b]), pars)
@@ -268,7 +268,7 @@ def EHI(x, gp1, gp2, xi=0., MD=None, NSAMPS=200, PCE=False, ORDER=2):
 
     a, b, c = parEI(gp1, gp2, '', '', EI=False, MD=MD)
     par = b.T[c, :]
-    par -= xi
+    par += xi
     MEAN = 0 # running sum for observed hypervolume improvement
     if not PCE: # Monte Carlo Sampling
        for ii in range(NSAMPS):
