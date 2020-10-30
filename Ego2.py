@@ -19,7 +19,7 @@ from emukit.model_wrappers.gpy_model_wrappers import GPyMultiOutputWrapper
 from emukit.multi_fidelity.models import GPyLinearMultiFidelityModel
 
 plt.style.use('dark_background')
-np.random.seed(17)
+np.random.seed(13427)
 OPTIMIZER = 'fmin_l_bfgs_b'
 COST = 0.01 # LF/HF cost
 
@@ -40,7 +40,7 @@ for __ in range(2000):
    fHs2 = np.array([f(xc, lf=False)[1] for xc in x1])
    fLs2 = np.array([f(xc, lf=True)[1] for xc in x2])
    
-   # convert evaluations to Emukit format   
+   # convert objective evaluations to Emukit format   
    X_train, Y_train = convert_xy_lists_to_arrays([np.atleast_2d(x2).T, np.atleast_2d(x1).T], [np.atleast_2d(fLs).T, np.atleast_2d(fHs).T])
    X_train2, Y_train2 = convert_xy_lists_to_arrays([np.atleast_2d(x2).T, np.atleast_2d(x1).T], [np.atleast_2d(fLs2).T, np.atleast_2d(fHs2).T])
 
@@ -50,16 +50,14 @@ for __ in range(2000):
    lin_mf_kernel = emukit.multi_fidelity.kernels.LinearMultiFidelityKernel(kernels)
    lin_mf_kernel2 = emukit.multi_fidelity.kernels.LinearMultiFidelityKernel(kernels2)
 
-   # Fit Emukit models
-
-   # objective 1
+   # Fit Emukit model of objective 1
    gpy_lin_mf_model = GPyLinearMultiFidelityModel(X_train, Y_train, lin_mf_kernel, n_fidelities=2)
    gpy_lin_mf_model.mixed_noise.Gaussian_noise.fix(0)
    gpy_lin_mf_model.mixed_noise.Gaussian_noise_1.fix(0)
    lin_mf_model = model = GPyMultiOutputWrapper(gpy_lin_mf_model, 2, n_optimization_restarts=5)
    lin_mf_model.optimize()
 
-   # objective 2
+   # Fit Emukit model of objective 2
    gpy_lin_mf_model2 = GPyLinearMultiFidelityModel(X_train2, Y_train2, lin_mf_kernel2, n_fidelities=2)
    gpy_lin_mf_model2.mixed_noise.Gaussian_noise.fix(0)
    gpy_lin_mf_model2.mixed_noise.Gaussian_noise_1.fix(0)
@@ -96,7 +94,7 @@ for __ in range(2000):
       std = np.sqrt(v2)
       if return_std:
          return np.array([mu[:, 0], std[:, 0]])
-      else: 
+      else:
          return mu[:, 0]
    
    def gpr2(x, return_std=False):
@@ -111,7 +109,7 @@ for __ in range(2000):
          return mu[:, 0]
 
    # estimate EHVI
-   xx = np.linspace(XL, XU, 100)
+   xx = np.linspace(XL, XU, 500)
    ehi1 = np.array([EHI(xc, gpr1, gpr2, PCE=False) for xc in xx])
    ehid = np.array([EHI(xc, gpr, gpr2d, PCE=False) for xc in xx])
 
