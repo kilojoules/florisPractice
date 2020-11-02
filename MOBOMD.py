@@ -36,7 +36,6 @@ for __ in range(2000):
    fHs2 = np.array([f(np.array([xc]), lf=False)[1] for xc in x1])
    #fLs2 = np.array([f(np.array([xc]), lf=True)[1] for xc in x2])
    
-   
    gpdelta = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=50, random_state=98765, normalize_y=True, optimizer=OPTIMIZER)
    gpdelta.fit(np.atleast_2d(x1), fHs)
    gpdelta2 = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=50, random_state=98765, normalize_y=True, optimizer=OPTIMIZER)
@@ -64,15 +63,15 @@ for __ in range(2000):
          mud = gpdelta2.predict(np.atleast_2d(x), return_std=False)
          return mud
    
-   print('probe1')
+   print('probe', __)
    ehid = np.array([EHI(xc, gpr, gpr2d, MD=DIM, NSAMPS=50) for xc in xx.T])
-   print('prober21')
    #eid = EHI(15, gpr, gpr1)
    #ei1 = -1 * expected_improvement(xx, x2, fHs + fLs[:fHs.size], gpr1, xi=XI)
    #eid = -1 * expected_improvement(xx, x1, fHs + fLs[:fHs.size], gpr, xi=0.01)
    #ax[2, 0].plot(xx, eid, label=r'$EI(\mu_\delta)$', c='r')
 
-   if np.max([ehid]) < 1e-2: break
+   print(np.max([ehid]))
+   if np.max([ehid]) < 1e-1: break
    x1 = np.append(np.atleast_2d(xx[:, np.argmax(ehid)]), x1, 0)
 
 l = np.linspace(XL, XU, 60)

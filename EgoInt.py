@@ -53,6 +53,9 @@ x2 = np.array(list(x1) + list(np.random.uniform(XL, XU, (1, DIM)))) # LF samples
 # begin optimization
 for __ in range(2000):
 
+   x1 = np.round(x1, 5)
+   x2 = np.round(x2, 5)
+
    # summon model evaluations
    fHs = np.array([delta(np.array([xc]))[0] for xc in x1])
    fLs = np.array([f(np.array([xc]), lf=True)[0] for xc in x2])
@@ -74,7 +77,7 @@ for __ in range(2000):
    #xx = np.array([xc for xc in itertools.permutations(l, 4)]).T
    #xx = np.meshgrid(l, l, l, l)[0].reshape(DIM, l.size ** (DIM) // DIM)
    #np.random.seed(12)
-   xx = np.random.uniform(XL, XU, (4, 200))
+   xx = np.append(np.random.uniform(XL, XU, (4, 400)), x2.T, 1)
    #xx = np.array([np.linspace(XL, XU, 10) for _ in range(DIM)])
    
    # define helper functions for computing Expected Hypervolume Improvement
@@ -122,28 +125,40 @@ for __ in range(2000):
    ehi1 = np.array([EHI(xc, gpr1, gpr2, MD=DIM, NSAMPS=500) for xc in xx.T])
    ehid = np.array([EHI(xc, gpr, gpr2d, MD=DIM, NSAMPS=500) for xc in xx.T])
 
-   x0 = np.ones(1 + DIM * (DIM + 1))
-   sol = mini(fitness, x0, args=(xx.T, ehi1))
-   sol2 = mini(fitness, x0, args=(xx.T, ehid))
-   ehsol = mini(fitevl, np.ones(DIM), args=sol.x, bounds=[[XL, XU] for ___ in range(DIM)])
-   ehsol2 = mini(fitevl, np.ones(DIM), args=sol2.x, bounds=[[XL, XU] for ___ in range(DIM)])
+   # Quadratic model
+   #x0 = np.ones(1 + DIM * (DIM + 1))
+   #sol = mini(fitness, x0, args=(xx.T, ehi1))
+   #sol2 = mini(fitness, x0, args=(xx.T, ehid))
+   #ehsol = mini(fitevl, np.ones(DIM), args=sol.x, bounds=[[XL, XU] for ___ in range(DIM)])
+   #ehsol2 = mini(fitevl, np.ones(DIM), args=sol2.x, bounds=[[XL, XU] for ___ in range(DIM)])
+   gpeh1 = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=50, random_state=98765, normalize_y=True, optimizer=OPTIMIZER)
+   gpeh2 = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=50, random_state=98765, normalize_y=True, optimizer=OPTIMIZER)
+   gpeh2.fit(xx.T, ehid)
+   gpeh1.fit(xx.T, ehi1)
+   x = np.linspace(XL, XU, 30)
+   xxx = np.stack(np.meshgrid(*[x]*DIM), axis=-1).reshape(DIM, -1)
+   epred = gpeh1.predict(xxx.T)
+   epred2 = gpeh2.predict(xxx.T)
+   newx2 = np.round(xxx[:, np.argmax(epred)], 5)
+   newx1 = np.round(xxx[:, np.argmax(epred2)], 5)
    
    # Check convergence
    #  (assumes LF costs 100x HF)
-   print("MAX IS ", np.max(ehid), np.max(ehi1))
+   print("MAX IS (", np.max(ehid), np.max(epred), ') (', np.max(ehi1), np.max(epred2), ')')
+   print(x2)
    #print("MAX IS ", np.max([ehi1 / .01, ehid]))
    if np.max([ehi1, ehid]) < 1e-2: break # (low-fidelity EHI is not weighted for stopping condition)
 
    # add next point according to weighted EHI
    if np.max(ehi1) / 0.01 > np.max(ehid):
       #if s[np.argmax(ehi1)] ==0: hey
-      x2 = np.append(x2, np.atleast_2d(ehsol.x), 0)
+      x2 = np.append(x2, np.atleast_2d(newx2), 0)
       #x2 = np.append(x2, np.atleast_2d(xx[:, np.argmax(ehi1)]), 0)
    else:
       #x1 = np.append(np.atleast_2d(xx[:, np.argmax(ehid)]), x1, 0)
       #x2 = np.append(np.atleast_2d(xx[:, np.argmax(ehid)]), x2, 0)
-      x1 = np.append(np.atleast_2d(ehsol2.x), 0)
-      x2 = np.append(np.atleast_2d(ehsol2.x), 0)
+      x1 = np.append(np.atleast_2d(newx1), 0)
+      x2 = np.append(np.atleast_2d(newx1), 0)
 
 l = np.linspace(XL, XU, 60)
 xx = np.meshgrid(l, l, l, l)[0].reshape(DIM, l.size ** (DIM) // DIM)

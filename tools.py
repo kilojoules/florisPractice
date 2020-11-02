@@ -93,7 +93,7 @@ def parEI(gp1, gp2, X_sample, Y_sample, EI=True, truth=False, MD=False):
 
     if MD: 
        # create ND grid
-       x = np.linspace(XL, XU, 5)
+       x = np.linspace(XL, XU, 10)
        ins = np.stack(np.meshgrid(*[x]*MD), axis=-1).reshape(MD, -1)
     else:
        # create 1D grid
@@ -108,8 +108,12 @@ def parEI(gp1, gp2, X_sample, Y_sample, EI=True, truth=False, MD=False):
     else:
        if not truth:
           # compute mu_GP front
-          a = [gp1(np.atleast_2d(np.array([xc])))[0] for xc in ins.T]
-          b = [gp2(np.atleast_2d(np.array([xc])))[0] for xc in ins.T]
+          if MD:
+             a = gp1(ins.T)
+             b = gp2(ins.T)
+          else:
+             a = [gp1(np.atleast_2d(np.array([xc])))[0] for xc in ins.T]
+             b = [gp2(np.atleast_2d(np.array([xc])))[0] for xc in ins.T]
        else: 
           # compute truth front
           a = [turbF(i) for i in ins]

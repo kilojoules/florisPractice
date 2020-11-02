@@ -26,8 +26,8 @@ def delta(x):
 def f(x, lf=False):
    return [turbF(x, lf=lf, MD=True), g(x, lf=lf)]
 
-DELTA_LENGTH_LOW_BOUNDS = 30
-kernel = RBF(15 , (1e-2 , 200)) # LF kernel
+DELTA_LENGTH_LOW_BOUNDS = 1
+kernel = RBF(15 , (1 , 200)) # LF kernel
 kernel2 = RBF(15 , (DELTA_LENGTH_LOW_BOUNDS, 200)) # discrepency kernel
 DIM = 4
 
@@ -36,6 +36,9 @@ x2 = np.array(list(x1) + list(np.random.uniform(XL, XU, (1, DIM)))) # LF samples
 
 # begin optimization
 for __ in range(2000):
+
+   x2 = np.round(x2, 5)
+   x1 = np.round(x1, 5)
 
    # summon model evaluations
    fHs = np.array([delta(np.array([xc]))[0] for xc in x1])
@@ -111,7 +114,7 @@ for __ in range(2000):
    #  (assumes LF costs 100x HF)
    print("MAX IS ", np.max(ehid), np.max(ehi1))
    #print("MAX IS ", np.max([ehi1 / .01, ehid]))
-   if np.max([ehi1, ehid]) < 1e-2: break # (low-fidelity EHI is not weighted for stopping condition)
+   if np.max([ehid]) < 1e-1: break # (low-fidelity EHI is not weighted for stopping condition)
 
    # add next point according to weighted EHI
    if np.max(ehi1) / 0.01 > np.max(ehid):
