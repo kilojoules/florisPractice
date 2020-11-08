@@ -10,6 +10,7 @@ from scipy.interpolate import Rbf
 from scipy.optimize import minimize as mini
 from scipy.optimize import fmin_cobyla
 import matplotlib.ticker as ticker
+import numba as nb
 plt.style.use('dark_background')
 #XL, XU = (0, 1)
 XL, XU = (-30, 30)
@@ -34,6 +35,7 @@ def f(x, lf=False):
 def callb(x): print('--- >', x)
 
 # https://stackoverflow.com/questions/32791911/fast-calculation-of-pareto-front-in-python
+#@nb.jit(nopython=False)
 def is_pareto_efficient_simple(costs):
     """
     Find the pareto-efficient points
@@ -89,15 +91,18 @@ compute expected improvement pareto front
   
   returns grid of potential inputs, the associated outputs, and indices associated with pareto front
 '''
-def parEI(gp1, gp2, X_sample, Y_sample, EI=True, truth=False, MD=False):
+#@nb.jit(nopython=False, forceobj=True)
+def parEI(gp1, gp2, X_sample, Y_sample, EI=True, truth=False, MD=False, PAR_RES=100):
+
 
     if MD: 
        # create ND grid
-       x = np.linspace(XL, XU, 10)
+       x = np.linspace(XL, XU, PAR_RES)
        ins = np.stack(np.meshgrid(*[x]*MD), axis=-1).reshape(MD, -1)
+       if X_sample is not None: ins = np.append(ins, X_sample, 1)
     else:
        # create 1D grid
-       ins = np.linspace(XL, XU, 100)
+       ins = np.linspace(XL, XU, PAR_RES)
 
     if EI:
        # compute EI front
@@ -116,8 +121,11 @@ def parEI(gp1, gp2, X_sample, Y_sample, EI=True, truth=False, MD=False):
              b = [gp2(np.atleast_2d(np.array([xc])))[0] for xc in ins.T]
        else: 
           # compute truth front
-          a = [turbF(i) for i in ins]
-          b = [g(i) for i in ins]
+          if MD:
+             a = [turbF([i], MD=MD) for i in ins.T]
+          else:
+             a = [turbF(i, MD=MD) for i in ins.T]
+          b = [g(i) for i in ins.T]
        pars = is_pareto_efficient_simple(np.array([a, b]).T)
 
        return(ins, np.array([a, b]), pars)
@@ -265,12 +273,13 @@ NSAMPS - number of random samples employed
 PCE - Flag to use Polynomial Chaos Expansion (PCE)
 ORDER - PCE order
 '''
-def EHI(x, gp1, gp2, xi=0., MD=None, NSAMPS=200, PCE=False, ORDER=2):
+#@nb.jit(nopython=False)
+def EHI(x, gp1, gp2, xi=0., x2=None, MD=None, NSAMPS=200, PCE=False, ORDER=2, PAR_RES=100):
 
     mu1, std1 = gp1(x, return_std=True)
     mu2, std2 = gp2(x, return_std=True)
 
-    a, b, c = parEI(gp1, gp2, '', '', EI=False, MD=MD)
+    a, b, c = parEI(gp1, gp2, x2, '', EI=False, MD=MD, PAR_RES=PAR_RES)
     par = b.T[c, :]
     par += xi
     MEAN = 0 # running sum for observed hypervolume improvement

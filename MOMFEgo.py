@@ -41,6 +41,9 @@ x2 = np.array(list(x1) + list(np.random.uniform(XL, XU, 1)))
 # initialize fixed grid
 xx = np.linspace(XL, XU, 100)
 
+logf = open('EgoCalls.log', 'w')
+logf.write('HFSamps LFSamps\n')
+
 for __ in range(2000):
 
    # summon model evaluations
@@ -117,14 +120,14 @@ for __ in range(2000):
       plt.subplots_adjust(wspace=0.2, hspace=0.4)
       ax[0, 0].plot(xx, p1, c='lightblue')
       ax[0, 0].fill_between(xx, p1 - s1, p1 + s1, facecolor='lightblue', alpha=0.7)
-      ax02 = ax[0, 0].twinx()
+      ax02 = ax[0, 1] # ax[0, 0].twinx()
       ax02.plot(xx, p2, c='lightgreen')
       ax02.fill_between(xx, p2 - s2, p2 + s2, facecolor='lightgreen', alpha=0.7)
       ax[0, 0].plot(xx, [f(np.array([xc]), lf=True)[0] for xc in xx], c='yellow', ls='-')
       ax02.plot(xx, [f(np.array([xc]), lf=True)[1] for xc in xx], c='yellow', ls='--')
       ax[0, 0].scatter(x2, fLs, c='w', marker='x')
       ax02.scatter(x2, fLs2, c='w', marker='x')
-      ax12 = ax[1, 0].twinx()
+      ax12 = ax[1, 1] # ax[1, 0].twinx()
       ax12.fill_between(xx, p2 + pd2 - s2 - sd2, p2 + pd2 + s2 + sd2, facecolor='purple', alpha=0.7)
       ax12.fill_between(xx, p2 + pd2 - s2, p2 + pd2 + s2, facecolor='lightblue', alpha=0.7)
       ax[1, 0].fill_between(xx, p1 + pd - s1 - sd, p1 + pd + s1 + sd, facecolor='red', alpha=0.7)
@@ -138,22 +141,31 @@ for __ in range(2000):
       ax[2, 0].set_xlabel('x')
       ax[0, 0].set_ylabel(r'Low-Fidelity')
       ax[1, 0].set_ylabel(r'High-Fidelity')
-      ax[0, 1].set_visible(False)
-      ax[1, 1].set_visible(False)
+      #ax[0, 1].set_visible(False)
+      #ax[1, 1].set_visible(False)
       a, b, c = parEI(gpr, gpr2d, x1, np.array([fHs + fLs[:fHs.size], fHs2 + fLs2[:fHs.size]]), EI=False)
       ax[2, 1].scatter(b[:, c].T[:, 0], b[:, c].T[:, 1], c='red')
       a, b, c = parEI(gpr2, gpr2d, x1, np.array([fHs + fLs[:fHs.size], fHs2 + fLs2[:fHs.size]]), EI=False, truth=True)
       ax[2, 1].scatter(b[:, c].T[:, 0], b[:, c].T[:, 1], c='yellow')
-      ax[0, 0].set_title(r'$l_1 = %.2f, l_2 = %.2f$' % (gp1.kernel_.get_params()['length_scale'], gp2.kernel_.get_params()['length_scale']))
-      ax[1, 0].set_title(r'$l_{\delta_1} = %.2f, l_{\delta_2} = %.2f$' % (gpdelta.kernel_.get_params()['length_scale'], gpdelta2.kernel_.get_params()['length_scale']))
+      #ax[0, 0].set_title(r'$l_1 = %.2f, l_2 = %.2f$' % (gp1.kernel_.get_params()['length_scale'], gp2.kernel_.get_params()['length_scale']))
+      ax[0, 0].annotate(r'$l_1 = %.2f$' % gp1.kernel_.get_params()['length_scale'], [-28, -1.39])
+      ax[0, 1].annotate(r'$l_2 = %.2f$' % gp2.kernel_.get_params()['length_scale'], [-25, -9.7777777])
+      ax[1, 0].annotate(r'$l_{\delta_1} = %.2f$' % gpdelta.kernel_.get_params()['length_scale'], [-28, -1.5])
+      ax[1, 1].annotate(r'$l_{\delta_2} = %.2f$' % gpdelta2.kernel_.get_params()['length_scale'], [-25, -9.8])
+      ax[0, 0].set_title('Power')
+      ax[0, 1].set_title('Loading')
+      #ax[1, 0].set_title(r'$l_{\delta_1} = %.2f, l_{\delta_2} = %.2f$' % (gpdelta.kernel_.get_params()['length_scale'], gpdelta2.kernel_.get_params()['length_scale']))
       ax[2, 0].plot(xx, ehi1 / COST, label='EHVI$(\mu_1) / %f$' % COST, c='lightblue')
       ax[2, 0].plot(xx, ehid, label='EHVI($\mu_\delta$)', c='red')
       ax[2, 0].legend()
-      ax[2, 1].set_xlabel('Negative Power')
+      ax[2, 1].set_xlabel('Power')
       ax[2, 1].set_ylabel('Loading')
+      plt.suptitle('%i HF Samples, %i LF Samples' % (x1.size, x2.size))
       plt.savefig('MF_%03d' % __)
       plt.clf()
  
+   logf.write('%i %i\n' % (x1.size, x2.size))
+
    # Check stopping condition
    if np.max(ehid) < 1e-4: break
 
@@ -163,6 +175,8 @@ for __ in range(2000):
    else:
       x1 = np.append(xx[np.argmax(ehid)], x1)
       x2 = np.append(xx[np.argmax(ehid)], x2)
+
+logf.close()
 
 # log results
 fl = open('costLog.log', 'w')

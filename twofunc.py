@@ -13,9 +13,15 @@ def florisEval(yaw_angle, WS, DIR, lf=False, MD=False):
          fi = wfct.floris_interface.FlorisInterface("./twoexample_input.json")
    else:
       if lf:
-         fi = wfct.floris_interface.FlorisInterface("./twoexample_inputLFMD.json")
+         if MD == 4:
+            fi = wfct.floris_interface.FlorisInterface("./twoexample_inputLFMD4.json")
+         else:
+            fi = wfct.floris_interface.FlorisInterface("./twoexample_inputLFMD.json")
       else:
-         fi = wfct.floris_interface.FlorisInterface("./twoexample_inputMD.json")
+         if MD == 4:
+             fi = wfct.floris_interface.FlorisInterface("./twoexample_inputMD4.json")
+         else:
+             fi = wfct.floris_interface.FlorisInterface("./twoexample_inputMD.json")
 
    # Set to 2x2 farm
    fi.reinitialize_flow_field(#layout_array=XY,
@@ -23,7 +29,7 @@ def florisEval(yaw_angle, WS, DIR, lf=False, MD=False):
 
    # Calculate wake
    if MD:
-      fi.calculate_wake(yaw_angles=np.array([0] + list(yaw_angle[0])))
+      fi.calculate_wake(yaw_angles=np.array(list(yaw_angle[0])))
    else:
       fi.calculate_wake(yaw_angles=np.array([0, yaw_angle]))
 
@@ -34,7 +40,7 @@ def f(x, lf=False, MD=False):
 
 def g(x, lf=False): 
    if lf:
-      return np.sum(np.sin(np.deg2rad(x))) ** 2 - 10
+      return np.sum(np.sin(np.deg2rad(x)) ** 2) - 10
    else:
       return np.sum(np.sin(np.deg2rad(x)) ** 2 + 0.5 * np.sin(np.deg2rad(x)) ** 4) - 10
 

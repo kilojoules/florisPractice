@@ -45,6 +45,8 @@ def fitevl(xin, x):
 DELTA_LENGTH_LOW_BOUNDS = 30
 kernel = RBF(15 , (1e-2 , 200)) # LF kernel
 kernel2 = RBF(15 , (DELTA_LENGTH_LOW_BOUNDS, 200)) # discrepency kernel
+kernel3 = RBF(15 , (1e-2 , 200)) # LF kernel
+kernel4 = RBF(15 , (DELTA_LENGTH_LOW_BOUNDS, 200)) # LF kernel
 DIM = 4
 
 x1 = np.random.uniform(XL, XU, (2, DIM)) # HF samples
@@ -64,11 +66,13 @@ for __ in range(2000):
    
    # Fit GPs
    gpdelta = GaussianProcessRegressor(kernel=kernel2, n_restarts_optimizer=50, random_state=98765, normalize_y=True, optimizer=OPTIMIZER)
-   gpdelta.fit(np.atleast_2d(x1), fHs)
+   gpdelta.fit(np.atleast_2d(x1), fHs2)
    gp1 = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=50, random_state=98765, normalize_y=True, optimizer=OPTIMIZER)
-   gp1.fit(np.atleast_2d(x2), fLs)
-   gp2 = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=50, random_state=98765, normalize_y=True, optimizer=OPTIMIZER)
-   gpdelta2 = GaussianProcessRegressor(kernel=kernel2, n_restarts_optimizer=50, random_state=98765, normalize_y=True, optimizer=OPTIMIZER)
+   gp1.fit(np.atleast_2d(x2), fLs2)
+   gp2 = GaussianProcessRegressor(kernel=kernel3, n_restarts_optimizer=50, random_state=98765, normalize_y=True, optimizer=OPTIMIZER)
+   gpdelta2 = GaussianProcessRegressor(kernel=kernel4, n_restarts_optimizer=50, random_state=98765, normalize_y=True, optimizer=OPTIMIZER)
+   #gp2.fit(np.atleast_2d(x2), fLs2)
+   #gpdelta2.fit(np.atleast_2d(x1), fHs2)
    gp2.fit(np.atleast_2d(x2), fLs2)
    gpdelta2.fit(np.atleast_2d(x1), fHs2)
    
@@ -135,7 +139,7 @@ for __ in range(2000):
    gpeh2 = GaussianProcessRegressor(kernel=kernel, n_restarts_optimizer=50, random_state=98765, normalize_y=True, optimizer=OPTIMIZER)
    gpeh2.fit(xx.T, ehid)
    gpeh1.fit(xx.T, ehi1)
-   x = np.linspace(XL, XU, 30)
+   x = np.linspace(XL, XU, 31)
    xxx = np.stack(np.meshgrid(*[x]*DIM), axis=-1).reshape(DIM, -1)
    epred = gpeh1.predict(xxx.T)
    epred2 = gpeh2.predict(xxx.T)
